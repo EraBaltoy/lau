@@ -25,17 +25,17 @@ func tryPlant(x, z, cr, ha, pl)
 end
 
 -- Varredura unica que faz tudo por tile:
---   vazio       → compra melhor seed → planta → rega
---   pronta      → colhe → vende → tenta replantar
+--   vazio       → compra melhor seed do budget inicial → planta → rega
+--   pronta      → colhe → vende → tenta replantar com budget inicial
 --   crescendo   → rega
--- Compra e venda sao dinamicas: se nao ha scrap mas colhemos algo,
--- imediatamente tenta comprar novamente.
+-- O dinheiro coletado/vendido durante a varredura atual nao compra novas seeds;
+-- ele so entra no budget quando o usuario iniciar uma nova varredura.
 -- Reconstroi planted[] do zero a cada chamada.
 farm.smartScan = func()
     planted  = {}
     pSize    = 0
     lastSize = player.getTileNumber()
-    seeds.refresh()
+    seeds.beginScan()
 
     varol cr = 0
     varol ha = 0

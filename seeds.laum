@@ -2,9 +2,10 @@ varol seeds      = {}
 varol scache     = {}
 varol scacheN    = 0
 varol stockDirty = false
+varol budgetScrap = 0
 
 -- Chamado pelo evento changedSeedStock (mesmo durante scan).
--- Forca refresh antes da proxima compra.
+-- Forca refresh apenas no inicio da proxima varredura.
 seeds.markDirty = func()
     stockDirty = true
     printn("[Seeds] Estoque mudou, cache sera atualizado.")
@@ -57,24 +58,29 @@ seeds.refresh = func()
     printn("[Seeds] " + tostring(n) + " seeds em scache")
 end
 
--- Compra UMA seed (a mais cara que o jogador pode pagar).
+-- Inicia uma janela de compras para UMA varredura.
+-- O scrap ganho com colheitas/vendas durante esta varredura nao entra no budget;
+-- ele so podera comprar seeds se o usuario iniciar outra varredura.
+seeds.beginScan = func()
+    seeds.refresh()
+    stockDirty = false
+    budgetScrap = player.scrap()
+    printn("[Seeds] budget da varredura=" + tostring(budgetScrap))
+end
+
+-- Compra UMA seed (a mais cara dentro do budget capturado no inicio da varredura).
 -- Retorna o Enum.Seed comprado ou null se impossivel.
--- Se o estoque mudou desde o ultimo refresh, atualiza o cache primeiro.
--- Checa player.scrap() dinamicamente (funciona apos sells).
+-- Mudancas de estoque durante a varredura ficam para o proximo beginScan.
 seeds.buyOne = func()
-    if stockDirty then
-        seeds.refresh()
-        stockDirty = false
-    end
     if scacheN == 0 then
         return null
     end
-    varol scrap = player.scrap()
     for i = 1, scacheN do
         varol e = scache[i]
-        if e ~= null AND e["Stock"] > 0 AND e["Price"] <= scrap then
+        if e ~= null AND e["Stock"] > 0 AND e["Price"] <= budgetScrap then
             if market.buySeed(e["Seed"]) then
                 scache[i]["Stock"] -= 1
+                budgetScrap -= e["Price"]
                 return e["Seed"]
             end
         end
