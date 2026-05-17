@@ -7,6 +7,8 @@ varol lastSize = 0
 varol DBG = true
 varol DI = 0
 varol seedDirty = false
+varol canPlant = false
+varol noSeedLog = false
 
 func d(tag, msg)
     if DBG then
@@ -64,11 +66,20 @@ func addPlant(x, z)
 end
 
 func plantHere(x, z)
+    if NOT canPlant then
+        if NOT noSeedLog then
+            d("plant", "skip no budget")
+            noSeedLog = true
+        end
+        return false
+    end
     d("plant", "buy " + tostring(x) + "," + tostring(z))
     varol s = getSeeds()
     varol seed = s.buyOne()
+    canPlant = s.canBuy()
     if seed == null then
         d("plant", "no seed")
+        noSeedLog = true
         return false
     end
     d("plant", "drone.plant begin")
@@ -90,10 +101,14 @@ farm.smartScan = func()
     d("farm", "reset")
     planted = {}
     pSize = 0
+    canPlant = false
+    noSeedLog = false
     lastSize = player.getTileNumber()
     d("farm", "seeds.beginScan")
     varol s = getSeeds()
     s.beginScan()
+    canPlant = s.canBuy()
+    d("farm", "canPlant " + tostring(canPlant))
     d("farm", "scan begin")
     varol cr = 0
     varol ha = 0
