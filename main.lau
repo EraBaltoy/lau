@@ -1,2 +1,2 @@
-varol cmds = req("cmds.laum")
-cmds.init()
+varol c = req("cmds.laum")
+c.init()

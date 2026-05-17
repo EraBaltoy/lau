@@ -1,12 +1,16 @@
-varol nav   = req("nav.laum")
+varol nav = req("nav.laum")
 varol seeds = req("seeds.laum")
-
-varol planted  = {}
-varol pSize    = 0
+varol farm = {}
+varol planted = {}
+varol pSize = 0
 varol lastSize = 0
-varol farm     = {}
 
-func tryPlant(x, z, cr, ha, pl)
+func addPlant(x, z)
+    pSize += 1
+    planted[pSize] = {x, z}
+end
+
+func plantHere(x, z)
     varol seed = seeds.buyOne()
     if seed == null then
         return false
@@ -16,27 +20,17 @@ func tryPlant(x, z, cr, ha, pl)
     end)
     if ok then
         drone.useItem(Enum.Gear.Watering_Can)
-        pl += 1
-        pSize += 1
-        planted[pSize] = {x, z}
+        addPlant(x, z)
         return true
     end
     return false
 end
 
--- Varredura unica que faz tudo por tile:
---   vazio       → compra melhor seed do budget inicial → planta → rega
---   pronta      → colhe → vende → tenta replantar com budget inicial
---   crescendo   → rega
--- O dinheiro coletado/vendido durante a varredura atual nao compra novas seeds;
--- ele so entra no budget quando o usuario iniciar uma nova varredura.
--- Reconstroi planted[] do zero a cada chamada.
 farm.smartScan = func()
-    planted  = {}
-    pSize    = 0
+    planted = {}
+    pSize = 0
     lastSize = player.getTileNumber()
     seeds.beginScan()
-
     varol cr = 0
     varol ha = 0
     varol pl = 0
@@ -44,25 +38,11 @@ farm.smartScan = func()
 
     nav.scan(func(x, z)
         varol plant = drone.getPlant()
-
         if plant == null then
-            -- Tile vazio: tenta plantar
-            varol seed = seeds.buyOne()
-            if seed ~= null then
-                varol ok, e = pcall(func()
-                    drone.plant(seed)
-                end)
-                if ok then
-                    drone.useItem(Enum.Gear.Watering_Can)
-                    pl += 1
-                    pSize += 1
-                    planted[pSize] = {x, z}
-                end
+            if plantHere(x, z) then
+                pl += 1
             end
-
         elseif plant["HasFruit"] then
-            -- Planta frutífera: colhe fruto se pronto, rega em seguida
-            -- Planta permanece no tile apos harvest
             if drone.canHarvest() then
                 drone.harvest()
                 ha += 1
@@ -70,40 +50,25 @@ farm.smartScan = func()
             end
             drone.useItem(Enum.Gear.Watering_Can)
             wa += 1
-            pSize += 1
-            planted[pSize] = {x, z}
-
+            addPlant(x, z)
         else
-            -- Planta nao-frutífera (crop): corta se pronta, tenta replantar
             if drone.canCrop() then
                 drone.crop()
                 cr += 1
                 market.sellAllItem()
-                -- Tile liberado: tenta replantar imediatamente
-                varol seed = seeds.buyOne()
-                if seed ~= null then
-                    varol ok, e = pcall(func()
-                        drone.plant(seed)
-                    end)
-                    if ok then
-                        drone.useItem(Enum.Gear.Watering_Can)
-                        pl += 1
-                        pSize += 1
-                        planted[pSize] = {x, z}
-                    end
+                if plantHere(x, z) then
+                    pl += 1
                 end
             else
-                -- Ainda crescendo: rega
                 drone.useItem(Enum.Gear.Watering_Can)
                 wa += 1
-                pSize += 1
-                planted[pSize] = {x, z}
+                addPlant(x, z)
             end
         end
     end)
 
     nav.home()
-    printn("[Smart] " + tostring(cr) + "C " + tostring(ha) + "H " + tostring(pl) + "P " + tostring(wa) + "W | " + tostring(pSize) + " plantas reg.")
+    printn("S " + tostring(cr) + "C " + tostring(ha) + "H " + tostring(pl) + "P " + tostring(wa) + "W " + tostring(pSize))
     return cr, ha, pl, wa
 end
 
@@ -112,23 +77,17 @@ farm.getStatus = func()
 end
 
 farm.exportData = func()
-    return http.jsonEncode({
-        ["p"]  = planted,
-        ["ps"] = pSize,
-        ["s"]  = lastSize
-    })
+    return http.jsonEncode({ ["p"] = planted, ["ps"] = pSize, ["s"] = lastSize })
 end
 
 farm.importData = func(json)
     varol d = http.jsonDecode(json)
     if d == null then
-        printn("[Import] JSON invalido.")
         return false
     end
-    planted  = d["p"]
-    pSize    = d["ps"]
+    planted = d["p"]
+    pSize = d["ps"]
     lastSize = d["s"]
-    printn("[Import] " + tostring(pSize) + "P size=" + tostring(lastSize))
     return true
 end
 
