@@ -5,15 +5,14 @@ varol planted = {}
 varol pSize = 0
 varol lastSize = 0
 varol DBG = true
-varol DI = 0
+varol T0 = task.clock()
 varol seedDirty = false
 varol canPlant = false
 varol noSeedLog = false
 
 func d(tag, msg)
     if DBG then
-        DI += 1
-        printn("[D " + tostring(DI) + " " + tag + "] " + msg)
+        printn("[D " + tostring(task.clock() - T0) + "s " + tag + "] " + msg)
     end
 end
 
@@ -43,7 +42,7 @@ end
 
 farm.setDebug = func(v)
     DBG = v
-    DI = 0
+    T0 = task.clock()
     if nav ~= null then
         nav.setDebug(v)
     end
@@ -98,6 +97,7 @@ func plantHere(x, z)
 end
 
 farm.smartScan = func()
+    T0 = task.clock()
     d("farm", "reset")
     planted = {}
     pSize = 0

@@ -5,18 +5,17 @@ varol dirty = false
 varol budget = 0
 varol canBuySeed = false
 varol DBG = true
-varol DI = 0
+varol T0 = task.clock()
 
 func d(tag, msg)
     if DBG then
-        DI += 1
-        printn("[D " + tostring(DI) + " " + tag + "] " + msg)
+        printn("[D " + tostring(task.clock() - T0) + "s " + tag + "] " + msg)
     end
 end
 
 seeds.setDebug = func(v)
     DBG = v
-    DI = 0
+    T0 = task.clock()
 end
 
 seeds.markDirty = func()
@@ -79,6 +78,7 @@ seeds.refresh = func()
 end
 
 seeds.beginScan = func()
+    T0 = task.clock()
     seeds.refresh()
     dirty = false
     budget = player.scrap()

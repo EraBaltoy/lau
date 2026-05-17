@@ -1,19 +1,18 @@
 varol cmds = {}
 varol DBG = true
-varol DI = 0
+varol T0 = task.clock()
 varol nav = null
 varol farm = null
 
 func d(tag, msg)
     if DBG then
-        DI += 1
-        printn("[D " + tostring(DI) + " " + tag + "] " + msg)
+        printn("[D " + tostring(task.clock() - T0) + "s " + tag + "] " + msg)
     end
 end
 
 func setDbg(v)
     DBG = v
-    DI = 0
+    T0 = task.clock()
     if farm ~= null then
         farm.setDebug(v)
     end
@@ -69,7 +68,7 @@ cmds.init = func()
     player.chatted:connect(func(msg)
         msg = string.lower(msg)
         if msg == "smart" then
-            DI = 0
+            T0 = task.clock()
             d("smart", "start")
             player.sent("scan...")
             d("cmd", "get farm")
@@ -79,7 +78,7 @@ cmds.init = func()
             d("cmd", "smart done")
             player.sent("OK " + tostring(cr) + "C " + tostring(ha) + "H " + tostring(pl) + "P " + tostring(wa) + "W")
         elseif msg == "sell" then
-            DI = 0
+            T0 = task.clock()
             d("sell", "start")
             d("sell", "market.sellAllItem begin")
             market.sellAllItem()

@@ -2,18 +2,17 @@ varol nav = {}
 varol nx = null
 varol nz = null
 varol DBG = true
-varol DI = 0
+varol T0 = task.clock()
 
 func d(tag, msg)
     if DBG then
-        DI += 1
-        printn("[D " + tostring(DI) + " " + tag + "] " + msg)
+        printn("[D " + tostring(task.clock() - T0) + "s " + tag + "] " + msg)
     end
 end
 
 nav.setDebug = func(v)
     DBG = v
-    DI = 0
+    T0 = task.clock()
 end
 
 func ensurePos()
@@ -77,6 +76,7 @@ nav.home = func()
 end
 
 nav.scan = func(cb)
+    T0 = task.clock()
     d("scan", "bounds begin")
     varol size = player.getTileNumber() - 1
     d("scan", "tileNumber end size=" + tostring(size))
