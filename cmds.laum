@@ -1,0 +1,136 @@
+varol nav   = req("nav.laum")
+varol farm  = req("farm.laum")
+varol seeds = req("seeds.laum")
+varol cmds  = {}
+
+varol PB_KEY  = "be46XdPLXEF_ZnL0oR3FmIeumSPxp4Ps"  -- API key do Pastebin
+varol PB_PASTE = "" -- Key da paste do registro
+
+func runCycle()
+    printn("=== CICLO ===")
+    varol cr, ha, wa = farm.harvestVisit()
+    nav.home()
+    varol ec = farm.getEmptyCount()
+    if ec > 0 then
+        varol plan, ps = seeds.buyWhatFits(ec)
+        if ps > 0 then
+            farm.plantVisit(plan, ps)
+            nav.home()
+        else
+            player.sent("Sem seeds/scrap.")
+        end
+    else
+        player.sent("Sem vazios. Use: scan <n>")
+    end
+    player.sent("OK! " + tostring(cr) + "C " + tostring(ha) + "H " + tostring(wa) + "W")
+end
+
+cmds.init = func()
+    market.changedSeedStock:connect(func()
+        player.alert("Mercado reabastecido!")
+    end)
+
+    player.chatted:connect(func(msg)
+        msg = string.lower(msg)
+
+        if msg == "smart" then
+            runCycle()
+
+        elseif msg == "init" then
+            farm.init()
+
+        elseif string.sub(msg, 1, 4) == "scan" then
+            varol n = tonumber(string.sub(msg, 6))
+            if n == null OR n < 1 then n = 10 end
+            printn("=== SCAN: " + tostring(n) + " tiles ===")
+            varol plan, ps = seeds.buyWhatFits(n)
+            if ps > 0 then
+                farm.scanAndPlant(plan, ps)
+                nav.home()
+            else
+                player.sent("Sem seeds/scrap.")
+            end
+
+        elseif msg == "save" then
+            if PB_KEY == "" then
+                player.sent("Configure: pbkey <sua_api_key>")
+            else
+                player.sent("Salvando registro...")
+                varol json = farm.exportData()
+                varol key  = nav.pbSave(PB_KEY, json)
+                if key ~= null then
+                    PB_PASTE = key
+                    player.sent("Salvo! Key=" + key)
+                    player.sent("Use 'load " + key + "' para restaurar")
+                else
+                    player.sent("Erro ao salvar.")
+                end
+            end
+
+        elseif string.sub(msg, 1, 5) == "load " then
+            varol key = string.sub(msg, 6)
+            player.sent("Carregando " + key + "...")
+            varol json = nav.pbLoad(key)
+            if json ~= null then
+                varol ok = farm.importData(json)
+                if ok then
+                    PB_PASTE = key
+                    varol ini, ps, es, ls = farm.getStatus()
+                    player.sent("OK! " + tostring(ps) + "P/" + tostring(es) + "V size=" + tostring(ls))
+                else
+                    player.sent("Erro ao importar dados.")
+                end
+            else
+                player.sent("Erro ao carregar paste.")
+            end
+
+        elseif string.sub(msg, 1, 6) == "pbkey " then
+            PB_KEY = string.sub(msg, 7)
+            player.sent("API key configurada!")
+
+        elseif msg == "status" then
+            varol ini, ps, es, ls = farm.getStatus()
+            varol iniStr = "NAO"
+            if ini then iniStr = "SIM" end
+            varol cur = player.getTileNumber()
+            varol pbStr = "OFF"
+            if PB_KEY ~= "" then pbStr = "ON paste=" + PB_PASTE end
+            printn("=== STATUS ===")
+            printn("Iniciado: " + iniStr + " | size map=" + tostring(ls) + " atual=" + tostring(cur))
+            printn("Planted : " + tostring(ps))
+            printn("Empty   : " + tostring(es))
+            printn("Pastebin: " + pbStr)
+            if es == 0 then printn("[INFO] Use: scan <n>") end
+            if cur ~= ls then printn("[WARN] Farm expandiu! Use: init") end
+
+        elseif msg == "sell" then
+            market.sellAllItem()
+            player.sent("Vendido!")
+
+        elseif msg == "home" then
+            nav.home()
+
+        elseif msg == "sync" then
+            nav.sync()
+
+        elseif msg == "pos" then
+            varol x, z = nav.pos()
+            player.sent("tracked=(" + tostring(x) + "," + tostring(z) + ")")
+
+        elseif msg == "inv" then
+            varol f = player.getFruitCount()
+            varol c = player.getFruitCapacity()
+            printn("Frutas: " + tostring(f) + "/" + tostring(c))
+
+        elseif msg == "help" then
+            printn("smart | init | scan <n> | sell")
+            printn("save | load <key> | pbkey <key>")
+            printn("status | sync | pos | inv | home")
+
+        end
+    end)
+
+    printn("Bot pronto! help para comandos")
+end
+
+return cmds

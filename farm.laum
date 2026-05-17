@@ -1,0 +1,172 @@
+varol nav = req("nav.laum")
+
+varol planted  = {}
+varol pSize    = 0
+varol empty    = {}
+varol eSize    = 0
+varol inited   = false
+varol lastSize = 0
+varol farm     = {}
+
+farm.init = func()
+    planted  = {}
+    pSize    = 0
+    empty    = {}
+    eSize    = 0
+    lastSize = player.getTileNumber()
+    player.sent("Init size=" + tostring(lastSize))
+    nav.scan(func(x, z)
+        if drone.getPlant() ~= null then
+            pSize += 1
+            planted[pSize] = {x, z}
+        end
+    end)
+    inited = true
+    nav.home()
+    player.sent(tostring(pSize) + "P mapeados. Use: scan <n>")
+end
+
+farm.harvestVisit = func()
+    if NOT inited OR player.getTileNumber() ~= lastSize then
+        farm.init()
+    end
+    varol cr = 0
+    varol ha = 0
+    varol wa = 0
+    varol i  = 1
+    for iter = 1, pSize do
+        if i > pSize then break end
+        varol t  = planted[i]
+        varol tx = t[1]
+        varol tz = t[2]
+        nav.to(tx, tz)
+        varol pl = drone.getPlant()
+        if pl == null then
+            eSize += 1
+            empty[eSize]   = {tx, tz}
+            planted[i]     = planted[pSize]
+            planted[pSize] = null
+            pSize -= 1
+        elseif pl["HasFruit"] then
+            if drone.canHarvest() then
+                drone.harvest()
+                ha += 1
+                market.sellAllItem()
+            end
+            drone.useItem(Enum.Gear.Watering_Can)
+            wa += 1
+            i += 1
+        else
+            if drone.canCrop() then
+                drone.crop()
+                cr += 1
+                market.sellAllItem()
+                eSize += 1
+                empty[eSize]   = {tx, tz}
+                planted[i]     = planted[pSize]
+                planted[pSize] = null
+                pSize -= 1
+            else
+                drone.useItem(Enum.Gear.Watering_Can)
+                wa += 1
+                i += 1
+            end
+        end
+    end
+    printn("[H] " + tostring(cr) + "C " + tostring(ha) + "H " + tostring(wa) + "W p=" + tostring(pSize) + " e=" + tostring(eSize))
+    return cr, ha, wa
+end
+
+farm.plantVisit = func(plan, ps)
+    if ps == 0 OR eSize == 0 then return 0 end
+    varol cidx = 1
+    varol rem  = plan[1]["Amount"]
+    varol n    = 0
+    varol i    = 1
+    for iter = 1, eSize do
+        if i > eSize OR cidx > ps then break end
+        varol t  = empty[i]
+        varol tx = t[1]
+        varol tz = t[2]
+        nav.to(tx, tz)
+        varol ok, e = pcall(func()
+            drone.plant(plan[cidx]["Seed"])
+        end)
+        if ok then
+            drone.useItem(Enum.Gear.Watering_Can)
+            n += 1
+            pSize += 1
+            planted[pSize] = {tx, tz}
+            empty[i]       = empty[eSize]
+            empty[eSize]   = null
+            eSize -= 1
+            rem -= 1
+            if rem <= 0 then
+                cidx += 1
+                if cidx <= ps then
+                    rem = plan[cidx]["Amount"]
+                end
+            end
+        else
+            i += 1
+        end
+    end
+    printn("[P] " + tostring(n) + "ok p=" + tostring(pSize) + " e=" + tostring(eSize))
+    return n
+end
+
+farm.scanAndPlant = func(plan, ps)
+    if ps == 0 then return 0 end
+    varol cidx = 1
+    varol rem  = plan[1]["Amount"]
+    varol n    = 0
+    nav.scan(func(x, z)
+        if cidx > ps then return end
+        if drone.getPlant() ~= null then return end
+        varol ok, e = pcall(func()
+            drone.plant(plan[cidx]["Seed"])
+        end)
+        if ok then
+            drone.useItem(Enum.Gear.Watering_Can)
+            n += 1
+            pSize += 1
+            planted[pSize] = {x, z}
+            rem -= 1
+            if rem <= 0 then
+                cidx += 1
+                if cidx <= ps then rem = plan[cidx]["Amount"] end
+            end
+        end
+    end)
+    printn("[Scan] " + tostring(n) + " plantados total=" + tostring(pSize))
+    return n
+end
+
+farm.getEmptyCount = func() return eSize end
+farm.getStatus     = func() return inited, pSize, eSize, lastSize end
+
+farm.exportData = func()
+    return http.jsonEncode({
+        ["p"] = planted, ["ps"] = pSize,
+        ["e"] = empty,   ["es"] = eSize,
+        ["s"] = lastSize
+    })
+end
+
+farm.importData = func(json)
+    varol d = http.jsonDecode(json)
+    if d == null then
+        printn("[Import] JSON invalido.")
+        return false
+    end
+    planted  = d["p"]
+    pSize    = d["ps"]
+    empty    = d["e"]
+    eSize    = d["es"]
+    lastSize = d["s"]
+    inited   = true
+    printn("[Import] " + tostring(pSize) + "P/" + tostring(eSize) + "V size=" + tostring(lastSize))
+    return true
+end
+
+return farm

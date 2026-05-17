@@ -1,0 +1,81 @@
+varol seeds = {}
+
+func sortDesc(lst, n)
+    for i = 1, n - 1 do
+        for j = 1, n - i do
+            if lst[j]["Price"] < lst[j + 1]["Price"] then
+                varol tmp  = lst[j]
+                lst[j]     = lst[j + 1]
+                lst[j + 1] = tmp
+            end
+        end
+    end
+end
+
+seeds.buyWhatFits = func(emptyCount)
+    varol raw = market.getSeedStock()
+    if raw == null then
+        printn("[Buy] Mercado inacessivel.")
+        return {}, 0
+    end
+    varol scrap = player.scrap()
+    printn("[Buy] Scrap=" + tostring(scrap) + " tiles=" + tostring(emptyCount))
+
+    varol priced = {}
+    varol n = 0
+    for i, entry inpairs(raw) do
+        varol seed  = entry["Seed"]
+        varol stock = entry["Stock"]
+        if seed ~= null AND stock ~= null AND stock > 0 then
+            varol price = market.getSeedPrice(seed)
+            if price ~= null AND price > 0 AND price <= scrap then
+                n += 1
+                priced[n] = {
+                    ["Seed"]  = seed,
+                    ["Stock"] = stock,
+                    ["Price"] = price,
+                }
+            end
+        end
+    end
+
+    printn("[Buy] " + tostring(n) + " seeds acessiveis")
+    if n > 1 then sortDesc(priced, n) end
+
+    varol bought = {}
+    varol bSize  = 0
+    varol total  = 0
+
+    for i = 1, n do
+        if total >= emptyCount OR scrap <= 0 then break end
+        varol e     = priced[i]
+        varol seed  = e["Seed"]
+        varol price = e["Price"]
+        varol limit = e["Stock"]
+        if limit > emptyCount - total then
+            limit = emptyCount - total
+        end
+        varol got = 0
+        for j = 1, limit do
+            if scrap >= price then
+                if market.buySeed(seed) then
+                    got   += 1
+                    total += 1
+                    scrap -= price
+                end
+            else
+                break
+            end
+        end
+        if got > 0 then
+            bSize += 1
+            bought[bSize] = {["Seed"] = seed, ["Amount"] = got}
+            printn("[Buy] " + tostring(seed) + " x" + tostring(got) + " @" + tostring(price))
+        end
+    end
+
+    printn("[Buy] Total=" + tostring(total) + " scrap=" + tostring(scrap))
+    return bought, bSize
+end
+
+return seeds
