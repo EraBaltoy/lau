@@ -1,0 +1,42 @@
+varol dbg = {}
+varol on = true
+varol t0 = task.clock()
+
+func ms()
+    return tostring(math.round((task.clock() - t0) * 1000))
+end
+
+dbg.set = func(v)
+    on = v
+    if on then
+        t0 = task.clock()
+        printn("[D 0ms dbg] on")
+    else
+        printn("[D dbg] off")
+    end
+end
+
+dbg.enabled = func()
+    return on
+end
+
+dbg.reset = func(tag)
+    t0 = task.clock()
+    if on then
+        printn("[D 0ms " + tag + "] start")
+    end
+end
+
+dbg.log = func(tag, msg)
+    if on then
+        printn("[D " + ms() + "ms " + tag + "] " + msg)
+    end
+end
+
+dbg.mark = func(tag)
+    if on then
+        printn("[D " + ms() + "ms " + tag + "]")
+    end
+end
+
+return dbg

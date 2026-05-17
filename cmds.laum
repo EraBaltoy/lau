@@ -1,4 +1,5 @@
 varol cmds = {}
+varol dbg = req("dbg.laum")
 varol nav = null
 varol farm = null
 varol seeds = null
@@ -7,21 +8,27 @@ varol PB_PASTE = ""
 
 func getSeeds()
     if seeds == null then
+        dbg.log("req", "seeds begin")
         seeds = req("seeds.laum")
+        dbg.log("req", "seeds end")
     end
     return seeds
 end
 
 func getFarm()
     if farm == null then
+        dbg.log("req", "farm begin")
         farm = req("farm.laum")
+        dbg.log("req", "farm end")
     end
     return farm
 end
 
 func getNav()
     if nav == null then
+        dbg.log("req", "nav begin")
         nav = req("nav.laum")
+        dbg.log("req", "nav end")
     end
     return nav
 end
@@ -48,7 +55,7 @@ end
 
 func help()
     printn("smart|sell|save|load k|pbkey k")
-    printn("status|home|pos|sync|inv")
+    printn("status|home|pos|sync|inv|debug on|off")
 end
 
 cmds.init = func()
@@ -61,20 +68,38 @@ cmds.init = func()
     player.chatted:connect(func(msg)
         msg = string.lower(msg)
         if msg == "smart" then
+            dbg.reset("smart")
             player.sent("scan...")
+            dbg.log("cmd", "get seeds")
+            getSeeds()
+            dbg.log("cmd", "get farm")
             varol f = getFarm()
+            dbg.log("cmd", "farm.smartScan")
             varol cr, ha, pl, wa = f.smartScan()
+            dbg.log("cmd", "smart done")
             player.sent("OK " + tostring(cr) + "C " + tostring(ha) + "H " + tostring(pl) + "P " + tostring(wa) + "W")
         elseif msg == "sell" then
+            dbg.reset("sell")
+            dbg.log("sell", "market.sellAllItem begin")
             market.sellAllItem()
+            dbg.log("sell", "market.sellAllItem end")
             player.sent("OK")
+        elseif msg == "debug on" then
+            dbg.set(true)
+            player.sent("debug on")
+        elseif msg == "debug off" then
+            dbg.set(false)
+            player.sent("debug off")
         elseif msg == "save" then
             if PB_KEY == "" then
                 player.sent("pbkey <key>")
             else
+                dbg.reset("save")
                 varol f = getFarm()
                 varol n = getNav()
+                dbg.log("save", "export")
                 varol json = f.exportData()
+                dbg.log("save", "pb post")
                 varol key = n.pbSave(PB_KEY, json)
                 if key ~= null then
                     PB_PASTE = key
@@ -84,11 +109,14 @@ cmds.init = func()
                 end
             end
         elseif string.sub(msg, 1, 5) == "load " then
+            dbg.reset("load")
             varol key = string.sub(msg, 6)
             varol n = getNav()
+            dbg.log("load", "pb get")
             varol json = n.pbLoad(key)
             if json ~= null then
                 varol f = getFarm()
+                dbg.log("load", "import")
                 if f.importData(json) then
                     PB_PASTE = key
                     player.sent("load OK")
@@ -102,6 +130,7 @@ cmds.init = func()
             PB_KEY = string.sub(msg, 7)
             player.sent("pb OK")
         elseif msg == "status" then
+            dbg.log("cmd", "status")
             status()
         elseif msg == "home" then
             varol n = getNav()
@@ -120,6 +149,7 @@ cmds.init = func()
         end
     end)
 
+    dbg.log("boot", "events ready")
     printn("Bot: smart")
 end
 

@@ -1,39 +1,48 @@
 varol nav = {}
+varol dbg = req("dbg.laum")
 varol nx = null
 varol nz = null
 
 func ensurePos()
     if nx == null OR nz == null then
+        dbg.log("nav", "getPosition begin")
         varol x, z = drone.getPosition()
+        dbg.log("nav", "getPosition end")
         nx = x
         nz = z
     end
 end
 
 nav.to = func(tx, tz)
+    dbg.log("nav", "to " + tostring(tx) + "," + tostring(tz))
     ensurePos()
     varol dx = tx - nx
     varol dz = tz - nz
     if dx > 0 then
         for i = 1, dx do
+            dbg.log("move", "E")
             drone.move(Enum.Direction.East)
         end
     elseif dx < 0 then
         for i = 1, -dx do
+            dbg.log("move", "W")
             drone.move(Enum.Direction.West)
         end
     end
     if dz > 0 then
         for i = 1, dz do
+            dbg.log("move", "S")
             drone.move(Enum.Direction.South)
         end
     elseif dz < 0 then
         for i = 1, -dz do
+            dbg.log("move", "N")
             drone.move(Enum.Direction.North)
         end
     end
     nx = tx
     nz = tz
+    dbg.log("nav", "at " + tostring(nx) + "," + tostring(nz))
 end
 
 nav.pos = func()
@@ -42,7 +51,9 @@ nav.pos = func()
 end
 
 nav.sync = func()
+    dbg.log("nav", "sync begin")
     varol x, z = drone.getPosition()
+    dbg.log("nav", "sync end")
     nx = x
     nz = z
     printn("pos " + tostring(nx) + "," + tostring(nz))
@@ -53,7 +64,9 @@ nav.home = func()
 end
 
 nav.scan = func(cb)
+    dbg.log("scan", "bounds begin")
     varol size = player.getTileNumber() - 1
+    dbg.log("scan", "tileNumber end size=" + tostring(size))
     varol mn = 0 - size
     varol mx = size
     varol zs = 0 - 4
@@ -65,11 +78,14 @@ nav.scan = func(cb)
         ze = mx
     end
     if zs > ze then
+        dbg.log("scan", "area off")
         printn("scan area off")
         return
     end
+    dbg.log("scan", "area x=" + tostring(mn) + ".." + tostring(mx) + " z=" + tostring(zs) + ".." + tostring(ze))
     varol east = true
     for z = zs, ze do
+        dbg.log("scan", "row z=" + tostring(z))
         if east then
             for x = mn, mx do
                 nav.to(x, z)
@@ -84,15 +100,18 @@ nav.scan = func(cb)
             east = true
         end
     end
+    dbg.log("scan", "done")
 end
 
 nav.pbSave = func(apiKey, content)
     varol body = "api_dev_key=" + apiKey
     body = body + "&api_option=paste&api_paste_private=2&api_paste_name=farmbot"
     body = body + "&api_paste_code=" + content
+    dbg.log("pb", "post begin")
     varol ok, res = pcall(func()
         return http.post("https://pastebin.com/api/api_post.php", body)
     end)
+    dbg.log("pb", "post end " + tostring(ok))
     if NOT ok then
         return null
     end
@@ -100,9 +119,11 @@ nav.pbSave = func(apiKey, content)
 end
 
 nav.pbLoad = func(key)
+    dbg.log("pb", "get begin")
     varol ok, res = pcall(func()
         return http.get("https://pastebin.com/raw/" + key)
     end)
+    dbg.log("pb", "get end " + tostring(ok))
     if NOT ok then
         return null
     end
