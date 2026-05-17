@@ -1,13 +1,25 @@
 varol seeds = {}
-varol dbg = req("dbg.laum")
 varol scache = {}
 varol scacheN = 0
 varol dirty = false
 varol budget = 0
+varol DBG = true
+varol T0 = task.clock()
+
+func d(tag, msg)
+    if DBG then
+        printn("[D " + tostring(task.clock() - T0) + " " + tag + "] " + msg)
+    end
+end
+
+seeds.setDebug = func(v)
+    DBG = v
+    T0 = task.clock()
+end
 
 seeds.markDirty = func()
     dirty = true
-    dbg.log("seeds", "dirty")
+    d("seeds", "dirty")
 end
 
 func sortDesc(lst, n)
@@ -23,23 +35,23 @@ func sortDesc(lst, n)
 end
 
 seeds.refresh = func()
-    dbg.log("seeds", "stock begin")
+    d("seeds", "stock begin")
     scache = {}
     scacheN = 0
     varol raw = market.getSeedStock()
-    dbg.log("seeds", "stock call end")
+    d("seeds", "stock call end")
     if raw == null then
-        dbg.log("seeds", "stock null")
+        d("seeds", "stock null")
         return
     end
     for i, e inpairs(raw) do
-        dbg.log("seeds", "entry " + tostring(i))
+        d("seeds", "entry " + tostring(i))
         varol seed = e["Seed"]
         varol stock = e["Stock"]
         if seed ~= null AND stock ~= null AND stock > 0 then
-            dbg.log("seeds", "price begin")
+            d("seeds", "price begin")
             varol price = market.getSeedPrice(seed)
-            dbg.log("seeds", "price end " + tostring(price))
+            d("seeds", "price end " + tostring(price))
             if price ~= null AND price > 0 then
                 scacheN += 1
                 scache[scacheN] = { ["Seed"] = seed, ["Stock"] = stock, ["Price"] = price }
@@ -47,17 +59,17 @@ seeds.refresh = func()
         end
     end
     if scacheN > 1 then
-        dbg.log("seeds", "sort " + tostring(scacheN))
+        d("seeds", "sort " + tostring(scacheN))
         sortDesc(scache, scacheN)
     end
-    dbg.log("seeds", "stock end n=" + tostring(scacheN))
+    d("seeds", "stock end n=" + tostring(scacheN))
 end
 
 seeds.beginScan = func()
     seeds.refresh()
     dirty = false
     budget = player.scrap()
-    dbg.log("seeds", "budget " + tostring(budget))
+    d("seeds", "budget " + tostring(budget))
 end
 
 seeds.buyOne = func()
@@ -67,17 +79,17 @@ seeds.buyOne = func()
     for i = 1, scacheN do
         varol e = scache[i]
         if e ~= null AND e["Stock"] > 0 AND e["Price"] <= budget then
-            dbg.log("seeds", "buy begin price=" + tostring(e["Price"]))
+            d("seeds", "buy begin price=" + tostring(e["Price"]))
             if market.buySeed(e["Seed"]) then
-                dbg.log("seeds", "buy ok")
+                d("seeds", "buy ok")
                 scache[i]["Stock"] -= 1
                 budget -= e["Price"]
                 return e["Seed"]
             end
-            dbg.log("seeds", "buy fail")
+            d("seeds", "buy fail")
         end
     end
-    dbg.log("seeds", "no affordable seed budget=" + tostring(budget))
+    d("seeds", "no affordable seed budget=" + tostring(budget))
     return null
 end
 

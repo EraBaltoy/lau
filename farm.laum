@@ -1,10 +1,28 @@
 varol nav = req("nav.laum")
 varol seeds = req("seeds.laum")
-varol dbg = req("dbg.laum")
 varol farm = {}
 varol planted = {}
 varol pSize = 0
 varol lastSize = 0
+varol DBG = true
+varol T0 = task.clock()
+
+func d(tag, msg)
+    if DBG then
+        printn("[D " + tostring(task.clock() - T0) + " " + tag + "] " + msg)
+    end
+end
+
+farm.setDebug = func(v)
+    DBG = v
+    T0 = task.clock()
+    nav.setDebug(v)
+    seeds.setDebug(v)
+end
+
+farm.markDirty = func()
+    seeds.markDirty()
+end
 
 func addPlant(x, z)
     pSize += 1
@@ -12,21 +30,21 @@ func addPlant(x, z)
 end
 
 func plantHere(x, z)
-    dbg.log("plant", "buy " + tostring(x) + "," + tostring(z))
+    d("plant", "buy " + tostring(x) + "," + tostring(z))
     varol seed = seeds.buyOne()
     if seed == null then
-        dbg.log("plant", "no seed")
+        d("plant", "no seed")
         return false
     end
-    dbg.log("plant", "drone.plant begin")
+    d("plant", "drone.plant begin")
     varol ok, e = pcall(func()
         drone.plant(seed)
     end)
-    dbg.log("plant", "drone.plant end " + tostring(ok))
+    d("plant", "drone.plant end " + tostring(ok))
     if ok then
-        dbg.log("plant", "water begin")
+        d("plant", "water begin")
         drone.useItem(Enum.Gear.Watering_Can)
-        dbg.log("plant", "water end")
+        d("plant", "water end")
         addPlant(x, z)
         return true
     end
@@ -34,74 +52,74 @@ func plantHere(x, z)
 end
 
 farm.smartScan = func()
-    dbg.log("farm", "reset")
+    d("farm", "reset")
     planted = {}
     pSize = 0
     lastSize = player.getTileNumber()
-    dbg.log("farm", "seeds.beginScan")
+    d("farm", "seeds.beginScan")
     seeds.beginScan()
-    dbg.log("farm", "scan begin")
+    d("farm", "scan begin")
     varol cr = 0
     varol ha = 0
     varol pl = 0
     varol wa = 0
 
     nav.scan(func(x, z)
-        dbg.log("tile", "at " + tostring(x) + "," + tostring(z) + " getPlant")
+        d("tile", "at " + tostring(x) + "," + tostring(z) + " getPlant")
         varol plant = drone.getPlant()
         if plant == null then
-            dbg.log("tile", "empty")
+            d("tile", "empty")
             if plantHere(x, z) then
                 pl += 1
             end
         elseif plant["HasFruit"] then
-            dbg.log("tile", "fruit")
-            dbg.log("harvest", "can begin")
+            d("tile", "fruit")
+            d("harvest", "can begin")
             varol canHa = drone.canHarvest()
-            dbg.log("harvest", "can " + tostring(canHa))
+            d("harvest", "can " + tostring(canHa))
             if canHa then
-                dbg.log("harvest", "begin")
+                d("harvest", "begin")
                 drone.harvest()
-                dbg.log("harvest", "end")
+                d("harvest", "end")
                 ha += 1
-                dbg.log("sell", "begin")
+                d("sell", "begin")
                 market.sellAllItem()
-                dbg.log("sell", "end")
+                d("sell", "end")
             end
-            dbg.log("water", "fruit begin")
+            d("water", "fruit begin")
             drone.useItem(Enum.Gear.Watering_Can)
-            dbg.log("water", "fruit end")
+            d("water", "fruit end")
             wa += 1
             addPlant(x, z)
         else
-            dbg.log("tile", "crop/grow")
-            dbg.log("crop", "can begin")
+            d("tile", "crop/grow")
+            d("crop", "can begin")
             varol canCr = drone.canCrop()
-            dbg.log("crop", "can " + tostring(canCr))
+            d("crop", "can " + tostring(canCr))
             if canCr then
-                dbg.log("crop", "begin")
+                d("crop", "begin")
                 drone.crop()
-                dbg.log("crop", "end")
+                d("crop", "end")
                 cr += 1
-                dbg.log("sell", "begin")
+                d("sell", "begin")
                 market.sellAllItem()
-                dbg.log("sell", "end")
+                d("sell", "end")
                 if plantHere(x, z) then
                     pl += 1
                 end
             else
-                dbg.log("water", "grow begin")
+                d("water", "grow begin")
                 drone.useItem(Enum.Gear.Watering_Can)
-                dbg.log("water", "grow end")
+                d("water", "grow end")
                 wa += 1
                 addPlant(x, z)
             end
         end
     end)
 
-    dbg.log("farm", "scan end home")
+    d("farm", "scan end home")
     nav.home()
-    dbg.log("farm", "home end")
+    d("farm", "home end")
     printn("S " + tostring(cr) + "C " + tostring(ha) + "H " + tostring(pl) + "P " + tostring(wa) + "W " + tostring(pSize))
     return cr, ha, pl, wa
 end
