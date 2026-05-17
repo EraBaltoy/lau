@@ -1,135 +1,186 @@
-varol nav   = req("nav.laum")
-varol seeds = req("seeds.laum")
-
-varol planted  = {}
-varol pSize    = 0
+varol nav = null
+varol seeds = null
+varol farm = {}
+varol planted = {}
+varol pSize = 0
 varol lastSize = 0
-varol farm     = {}
+varol DBG = true
+varol T0 = task.clock()
+varol seedDirty = false
+varol canPlant = false
+varol noSeedLog = false
 
-func tryPlant(x, z, cr, ha, pl)
-    varol seed = seeds.buyOne()
-    if seed == null then
+func d(tag, msg)
+    if DBG then
+        varol now = task.clock()
+        varol dt = string.sub(tostring(now - T0), 1, 5)
+        T0 = now
+        printn("[D +" + dt + "s " + tag + "] " + msg)
+    end
+end
+
+func getNav()
+    if nav == null then
+        d("req", "nav begin")
+        nav = req("nav.laum")
+        nav.setDebug(DBG)
+        d("req", "nav end")
+    end
+    return nav
+end
+
+func getSeeds()
+    if seeds == null then
+        d("req", "seeds begin")
+        seeds = req("seeds.laum")
+        seeds.setDebug(DBG)
+        if seedDirty then
+            seeds.markDirty()
+            seedDirty = false
+        end
+        d("req", "seeds end")
+    end
+    return seeds
+end
+
+farm.setDebug = func(v)
+    DBG = v
+    T0 = task.clock()
+    if nav ~= null then
+        nav.setDebug(v)
+    end
+    if seeds ~= null then
+        seeds.setDebug(v)
+    end
+end
+
+farm.markDirty = func()
+    if seeds == null then
+        seedDirty = true
+    else
+        seeds.markDirty()
+    end
+end
+
+func addPlant(x, z)
+    pSize += 1
+    planted[pSize] = {x, z}
+end
+
+func plantHere(x, z)
+    if NOT canPlant then
+        if NOT noSeedLog then
+            d("plant", "skip no budget")
+            noSeedLog = true
+        end
         return false
     end
+    d("plant", "buy " + tostring(x) + "," + tostring(z))
+    varol s = getSeeds()
+    varol seed = s.buyOne()
+    canPlant = s.canBuy()
+    if seed == null then
+        d("plant", "no seed")
+        noSeedLog = true
+        return false
+    end
+    d("plant", "drone.plant begin")
     varol ok, e = pcall(func()
         drone.plant(seed)
     end)
+    d("plant", "drone.plant end " + tostring(ok))
     if ok then
+        d("plant", "water begin")
         drone.useItem(Enum.Gear.Watering_Can)
-        pl += 1
-        pSize += 1
-        planted[pSize] = {x, z}
+        d("plant", "water end")
+        addPlant(x, z)
         return true
     end
     return false
 end
 
--- Varredura unica que faz tudo por tile:
---   vazio       → compra melhor seed → planta → rega
---   pronta      → colhe → vende → tenta replantar
---   crescendo   → rega
--- Compra e venda sao dinamicas: se nao ha scrap mas colhemos algo,
--- imediatamente tenta comprar novamente.
--- Reconstroi planted[] do zero a cada chamada.
 farm.smartScan = func()
-    planted  = {}
-    pSize    = 0
+    T0 = task.clock()
+    d("farm", "reset")
+    planted = {}
+    pSize = 0
+    canPlant = false
+    noSeedLog = false
     lastSize = player.getTileNumber()
-    seeds.refresh()
-
+    d("farm", "seeds.beginScan")
+    varol s = getSeeds()
+    s.beginScan()
+    canPlant = s.canBuy()
+    d("farm", "canPlant " + tostring(canPlant))
+    d("farm", "scan begin")
     varol cr = 0
     varol ha = 0
     varol pl = 0
     varol wa = 0
 
-    nav.scan(func(x, z)
+    varol n = getNav()
+    n.scan(func(x, z)
+        d("tile", "at " + tostring(x) + "," + tostring(z) + " getPlant")
         varol plant = drone.getPlant()
-
         if plant == null then
-            -- Tile vazio: tenta plantar
-            varol seed = seeds.buyOne()
-            if seed ~= null then
-                varol ok, e = pcall(func()
-                    drone.plant(seed)
-                end)
-                if ok then
-                    drone.useItem(Enum.Gear.Watering_Can)
-                    pl += 1
-                    pSize += 1
-                    planted[pSize] = {x, z}
-                end
+            d("tile", "empty")
+            if plantHere(x, z) then
+                pl += 1
             end
-
         elseif plant["HasFruit"] then
-            -- Planta frutífera: colhe fruto se pronto, rega em seguida
-            -- Planta permanece no tile apos harvest
-            if drone.canHarvest() then
+            d("tile", "fruit")
+            d("harvest", "can begin")
+            varol canHa = drone.canHarvest()
+            d("harvest", "can " + tostring(canHa))
+            if canHa then
+                d("harvest", "begin")
                 drone.harvest()
+                d("harvest", "end")
                 ha += 1
+                d("sell", "begin")
                 market.sellAllItem()
+                d("sell", "end")
             end
+            d("water", "fruit begin")
             drone.useItem(Enum.Gear.Watering_Can)
+            d("water", "fruit end")
             wa += 1
-            pSize += 1
-            planted[pSize] = {x, z}
-
+            addPlant(x, z)
         else
-            -- Planta nao-frutífera (crop): corta se pronta, tenta replantar
-            if drone.canCrop() then
+            d("tile", "crop/grow")
+            d("crop", "can begin")
+            varol canCr = drone.canCrop()
+            d("crop", "can " + tostring(canCr))
+            if canCr then
+                d("crop", "begin")
                 drone.crop()
+                d("crop", "end")
                 cr += 1
+                d("sell", "begin")
                 market.sellAllItem()
-                -- Tile liberado: tenta replantar imediatamente
-                varol seed = seeds.buyOne()
-                if seed ~= null then
-                    varol ok, e = pcall(func()
-                        drone.plant(seed)
-                    end)
-                    if ok then
-                        drone.useItem(Enum.Gear.Watering_Can)
-                        pl += 1
-                        pSize += 1
-                        planted[pSize] = {x, z}
-                    end
+                d("sell", "end")
+                if plantHere(x, z) then
+                    pl += 1
                 end
             else
-                -- Ainda crescendo: rega
+                d("water", "grow begin")
                 drone.useItem(Enum.Gear.Watering_Can)
+                d("water", "grow end")
                 wa += 1
-                pSize += 1
-                planted[pSize] = {x, z}
+                addPlant(x, z)
             end
         end
     end)
 
-    nav.home()
-    printn("[Smart] " + tostring(cr) + "C " + tostring(ha) + "H " + tostring(pl) + "P " + tostring(wa) + "W | " + tostring(pSize) + " plantas reg.")
+    d("farm", "scan end home")
+    n.home()
+    d("farm", "home end")
+    printn("S " + tostring(cr) + "C " + tostring(ha) + "H " + tostring(pl) + "P " + tostring(wa) + "W " + tostring(pSize))
     return cr, ha, pl, wa
 end
 
 farm.getStatus = func()
     return pSize, lastSize
-end
-
-farm.exportData = func()
-    return http.jsonEncode({
-        ["p"]  = planted,
-        ["ps"] = pSize,
-        ["s"]  = lastSize
-    })
-end
-
-farm.importData = func(json)
-    varol d = http.jsonDecode(json)
-    if d == null then
-        printn("[Import] JSON invalido.")
-        return false
-    end
-    planted  = d["p"]
-    pSize    = d["ps"]
-    lastSize = d["s"]
-    printn("[Import] " + tostring(pSize) + "P size=" + tostring(lastSize))
-    return true
 end
 
 return farm

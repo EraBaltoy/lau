@@ -1,41 +1,77 @@
 varol nav = {}
+varol nx = null
+varol nz = null
+varol DBG = true
+varol T0 = task.clock()
 
-varol nx, nz = drone.getPosition()
+func d(tag, msg)
+    if DBG then
+        varol now = task.clock()
+        varol dt = string.sub(tostring(now - T0), 1, 5)
+        T0 = now
+        printn("[D +" + dt + "s " + tag + "] " + msg)
+    end
+end
+
+nav.setDebug = func(v)
+    DBG = v
+    T0 = task.clock()
+end
+
+func ensurePos()
+    if nx == null OR nz == null then
+        d("nav", "getPosition begin")
+        varol x, z = drone.getPosition()
+        d("nav", "getPosition end")
+        nx = x
+        nz = z
+    end
+end
 
 nav.to = func(tx, tz)
+    d("nav", "to " + tostring(tx) + "," + tostring(tz))
+    ensurePos()
     varol dx = tx - nx
     varol dz = tz - nz
     if dx > 0 then
         for i = 1, dx do
+            d("move", "E")
             drone.move(Enum.Direction.East)
         end
     elseif dx < 0 then
         for i = 1, -dx do
+            d("move", "W")
             drone.move(Enum.Direction.West)
         end
     end
     if dz > 0 then
         for i = 1, dz do
+            d("move", "S")
             drone.move(Enum.Direction.South)
         end
     elseif dz < 0 then
         for i = 1, -dz do
+            d("move", "N")
             drone.move(Enum.Direction.North)
         end
     end
-    varol px, pz = drone.getPosition()
-    nx = px
-    nz = pz
+    nx = tx
+    nz = tz
+    d("nav", "at " + tostring(nx) + "," + tostring(nz))
 end
 
 nav.pos = func()
+    ensurePos()
     return nx, nz
 end
 
 nav.sync = func()
-    varol rx, rz = drone.getPosition()
-    printn("[Nav] tracked=(" + tostring(nx) + "," + tostring(nz) + ")")
-    printn("[Nav] raw    =(" + tostring(rx) + "," + tostring(rz) + ")")
+    d("nav", "sync begin")
+    varol x, z = drone.getPosition()
+    d("nav", "sync end")
+    nx = x
+    nz = z
+    printn("pos " + tostring(nx) + "," + tostring(nz))
 end
 
 nav.home = func()
@@ -43,80 +79,44 @@ nav.home = func()
 end
 
 nav.scan = func(cb)
-    varol size     = player.getTileNumber() - 1
-    varol minCoord = 0 - size
-    varol maxCoord = size
-    varol zStart   = 0 - 4
-    varol zEnd     = 0 - 3
-
-    if zStart < minCoord then
-        zStart = minCoord
+    T0 = task.clock()
+    d("scan", "bounds begin")
+    varol size = player.getTileNumber() - 1
+    d("scan", "tileNumber end size=" + tostring(size))
+    varol mn = 0 - size
+    varol mx = size
+    varol zs = 0 - 4
+    varol ze = 0 - 3
+    if zs < mn then
+        zs = mn
     end
-    if zEnd > maxCoord then
-        zEnd = maxCoord
+    if ze > mx then
+        ze = mx
     end
-
-    if zStart > zEnd then
-        printn("[Scan] area x,-4 ate x,-3 fora da fazenda atual.")
+    if zs > ze then
+        d("scan", "area off")
+        printn("scan area off")
         return
     end
-
-    varol side   = size * 2 + 1
-    varol rows   = zEnd - zStart + 1
-    varol row    = 0
-    varol toEast = true
-    printn("[Scan] area limitada: x=" + tostring(minCoord) + ".." + tostring(maxCoord) + " z=" + tostring(zStart) + ".." + tostring(zEnd) + " (" + tostring(side * rows) + " tiles)")
-
-    for z = zStart, zEnd do
-        row += 1
-        printn("[Scan] linha " + tostring(row) + "/" + tostring(rows) + " z=" + tostring(z))
-        if toEast then
-            for x = minCoord, maxCoord do
+    d("scan", "area x=" + tostring(mn) + ".." + tostring(mx) + " z=" + tostring(zs) + ".." + tostring(ze))
+    varol east = true
+    for z = zs, ze do
+        d("scan", "row z=" + tostring(z))
+        if east then
+            for x = mn, mx do
                 nav.to(x, z)
                 cb(x, z)
             end
+            east = false
         else
-            for x = maxCoord, minCoord, -1 do
+            for x = mx, mn, -1 do
                 nav.to(x, z)
                 cb(x, z)
             end
-        end
-        if toEast then
-            toEast = false
-        else
-            toEast = true
+            east = true
         end
     end
-end
-
-nav.pbSave = func(apiKey, content)
-    varol body = "api_dev_key=" + apiKey
-    body = body + "&api_option=paste"
-    body = body + "&api_paste_private=2"
-    body = body + "&api_paste_name=farmbot"
-    body = body + "&api_paste_code=" + content
-    varol ok, res = pcall(func()
-        return http.post("https://pastebin.com/api/api_post.php", body)
-    end)
-    if NOT ok then
-        printn("[PB] Erro: " + tostring(res))
-        return null
-    end
-    varol key = string.sub(tostring(res), 22)
-    printn("[PB] Salvo! key=" + key)
-    return key
-end
-
-nav.pbLoad = func(pasteKey)
-    varol url = "https://pastebin.com/raw/" + pasteKey
-    varol ok, res = pcall(func()
-        return http.get(url)
-    end)
-    if NOT ok then
-        printn("[PB] Erro: " + tostring(res))
-        return null
-    end
-    return tostring(res)
+    d("scan", "done")
 end
 
 return nav

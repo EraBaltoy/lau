@@ -1,84 +1,118 @@
-varol seeds      = {}
-varol scache     = {}
-varol scacheN    = 0
-varol stockDirty = false
+varol seeds = {}
+varol scache = {}
+varol scacheN = 0
+varol dirty = false
+varol budget = 0
+varol canBuySeed = false
+varol DBG = true
+varol T0 = task.clock()
 
--- Chamado pelo evento changedSeedStock (mesmo durante scan).
--- Forca refresh antes da proxima compra.
+func d(tag, msg)
+    if DBG then
+        varol now = task.clock()
+        varol dt = string.sub(tostring(now - T0), 1, 5)
+        T0 = now
+        printn("[D +" + dt + "s " + tag + "] " + msg)
+    end
+end
+
+seeds.setDebug = func(v)
+    DBG = v
+    T0 = task.clock()
+end
+
 seeds.markDirty = func()
-    stockDirty = true
-    printn("[Seeds] Estoque mudou, cache sera atualizado.")
+    dirty = true
+    d("seeds", "dirty")
+end
+
+func updateCanBuy()
+    canBuySeed = false
+    for i = 1, scacheN do
+        varol e = scache[i]
+        if e ~= null AND e["Stock"] > 0 AND e["Price"] <= budget then
+            canBuySeed = true
+            return
+        end
+    end
 end
 
 func sortDesc(lst, n)
     for i = 1, n - 1 do
         for j = 1, n - i do
             if lst[j]["Price"] < lst[j + 1]["Price"] then
-                varol tmp  = lst[j]
-                lst[j]     = lst[j + 1]
-                lst[j + 1] = tmp
+                varol t = lst[j]
+                lst[j] = lst[j + 1]
+                lst[j + 1] = t
             end
         end
     end
 end
 
--- Consulta o mercado uma unica vez e monta scache ordenado por preco desc.
--- Chamar no inicio de cada smartScan.
 seeds.refresh = func()
-    scache  = {}
+    d("seeds", "stock begin")
+    scache = {}
     scacheN = 0
     varol raw = market.getSeedStock()
+    d("seeds", "stock call end")
     if raw == null then
-        printn("[Seeds] Mercado inacessivel.")
+        d("seeds", "stock null")
         return
     end
-    varol n = 0
-    varol tmp = {}
-    for i, entry inpairs(raw) do
-        varol seed  = entry["Seed"]
-        varol stock = entry["Stock"]
+    for i, e inpairs(raw) do
+        d("seeds", "entry " + tostring(i))
+        varol seed = e["Seed"]
+        varol stock = e["Stock"]
         if seed ~= null AND stock ~= null AND stock > 0 then
+            d("seeds", "price begin")
             varol price = market.getSeedPrice(seed)
+            d("seeds", "price end " + tostring(price))
             if price ~= null AND price > 0 then
-                n += 1
-                tmp[n] = {
-                    ["Seed"]  = seed,
-                    ["Stock"] = stock,
-                    ["Price"] = price,
-                }
+                scacheN += 1
+                scache[scacheN] = { ["Seed"] = seed, ["Stock"] = stock, ["Price"] = price }
             end
         end
     end
-    if n > 1 then
-        sortDesc(tmp, n)
+    if scacheN > 1 then
+        d("seeds", "sort " + tostring(scacheN))
+        sortDesc(scache, scacheN)
     end
-    scache  = tmp
-    scacheN = n
-    printn("[Seeds] " + tostring(n) + " seeds em scache")
+    d("seeds", "stock end n=" + tostring(scacheN))
 end
 
--- Compra UMA seed (a mais cara que o jogador pode pagar).
--- Retorna o Enum.Seed comprado ou null se impossivel.
--- Se o estoque mudou desde o ultimo refresh, atualiza o cache primeiro.
--- Checa player.scrap() dinamicamente (funciona apos sells).
+seeds.beginScan = func()
+    T0 = task.clock()
+    seeds.refresh()
+    dirty = false
+    budget = player.scrap()
+    updateCanBuy()
+    d("seeds", "budget " + tostring(budget) + " can=" + tostring(canBuySeed))
+end
+
+seeds.canBuy = func()
+    return canBuySeed
+end
+
 seeds.buyOne = func()
-    if stockDirty then
-        seeds.refresh()
-        stockDirty = false
-    end
-    if scacheN == 0 then
+    if NOT canBuySeed then
         return null
     end
-    varol scrap = player.scrap()
     for i = 1, scacheN do
         varol e = scache[i]
-        if e ~= null AND e["Stock"] > 0 AND e["Price"] <= scrap then
+        if e ~= null AND e["Stock"] > 0 AND e["Price"] <= budget then
+            d("seeds", "buy begin price=" + tostring(e["Price"]))
             if market.buySeed(e["Seed"]) then
+                d("seeds", "buy ok")
                 scache[i]["Stock"] -= 1
+                budget -= e["Price"]
+                updateCanBuy()
                 return e["Seed"]
             end
+            d("seeds", "buy fail")
         end
     end
+    canBuySeed = false
+    d("seeds", "no affordable seed budget=" + tostring(budget))
     return null
 end
 
