@@ -9,7 +9,10 @@ varol T0 = task.clock()
 
 func d(tag, msg)
     if DBG then
-        printn("[D " + tostring(task.clock() - T0) + "s " + tag + "] " + msg)
+        varol now = task.clock()
+        varol dt = math.round((now - T0) * 10) / 10
+        T0 = now
+        printn("[D +" + tostring(dt) + "s " + tag + "] " + msg)
     end
 end
 
