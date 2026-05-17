@@ -6,21 +6,31 @@ nav.to = func(tx, tz)
     varol dx = tx - nx
     varol dz = tz - nz
     if dx > 0 then
-        for i = 1, dx do drone.move(Enum.Direction.East) end
+        for i = 1, dx do
+            drone.move(Enum.Direction.East)
+        end
     elseif dx < 0 then
-        for i = 1, -dx do drone.move(Enum.Direction.West) end
+        for i = 1, -dx do
+            drone.move(Enum.Direction.West)
+        end
     end
     if dz > 0 then
-        for i = 1, dz do drone.move(Enum.Direction.South) end
+        for i = 1, dz do
+            drone.move(Enum.Direction.South)
+        end
     elseif dz < 0 then
-        for i = 1, -dz do drone.move(Enum.Direction.North) end
+        for i = 1, -dz do
+            drone.move(Enum.Direction.North)
+        end
     end
     varol px, pz = drone.getPosition()
     nx = px
     nz = pz
 end
 
-nav.pos = func() return nx, nz end
+nav.pos = func()
+    return nx, nz
+end
 
 nav.sync = func()
     varol rx, rz = drone.getPosition()
@@ -28,19 +38,19 @@ nav.sync = func()
     printn("[Nav] raw    =(" + tostring(rx) + "," + tostring(rz) + ")")
 end
 
-nav.home = func() nav.to(0, 0) end
+nav.home = func()
+    nav.to(0, 0)
+end
 
--- Varredura serpentina completa. Chama cb(x,z) em cada tile.
 nav.scan = func(cb)
-    varol size = player.getTileNumber() - 1
-    varol total = (size * 2 + 1) * (size * 2 + 1)
-    printn("Scan " + tostring(size*2+1) + "x" + tostring(size*2+1) + " (-" + tostring(size) + " a " + tostring(size) + ") = " + tostring(total) + " tiles")
-    varol rows   = size * 2 + 1
+    varol size   = player.getTileNumber() - 1
+    varol side   = size * 2 + 1
     varol row    = 0
     varol toEast = true
+    printn("[Scan] " + tostring(side) + "x" + tostring(side) + " (-" + tostring(size) + " a " + tostring(size) + ")")
     for z = -size, size do
         row += 1
-        printn("Scan " + tostring(row) + "/" + tostring(rows))
+        printn("[Scan] linha " + tostring(row) + "/" + tostring(side))
         if toEast then
             for x = -size, size do
                 nav.to(x, z)
@@ -60,7 +70,6 @@ nav.scan = func(cb)
     end
 end
 
--- Pastebin: salva string, retorna paste key ou null.
 nav.pbSave = func(apiKey, content)
     varol body = "api_dev_key=" + apiKey
     body = body + "&api_option=paste"
@@ -79,7 +88,6 @@ nav.pbSave = func(apiKey, content)
     return key
 end
 
--- Pastebin: carrega raw content por paste key.
 nav.pbLoad = func(pasteKey)
     varol url = "https://pastebin.com/raw/" + pasteKey
     varol ok, res = pcall(func()
