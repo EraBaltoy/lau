@@ -1,4 +1,6 @@
-varol seeds = {}
+varol seeds  = {}
+varol cache  = {}
+varol cacheN = 0
 
 func sortDesc(lst, n)
     for i = 1, n - 1 do
@@ -12,25 +14,26 @@ func sortDesc(lst, n)
     end
 end
 
-seeds.buyWhatFits = func(emptyCount)
+-- Consulta o mercado uma unica vez e monta cache ordenado por preco desc.
+-- Chamar no inicio de cada smartScan.
+seeds.refresh = func()
+    cache  = {}
+    cacheN = 0
     varol raw = market.getSeedStock()
     if raw == null then
-        printn("[Buy] Mercado inacessivel.")
-        return {}, 0
+        printn("[Seeds] Mercado inacessivel.")
+        return
     end
-    varol scrap = player.scrap()
-    printn("[Buy] Scrap=" + tostring(scrap) + " tiles=" + tostring(emptyCount))
-
-    varol priced = {}
     varol n = 0
+    varol tmp = {}
     for i, entry inpairs(raw) do
         varol seed  = entry["Seed"]
         varol stock = entry["Stock"]
         if seed ~= null AND stock ~= null AND stock > 0 then
             varol price = market.getSeedPrice(seed)
-            if price ~= null AND price > 0 AND price <= scrap then
+            if price ~= null AND price > 0 then
                 n += 1
-                priced[n] = {
+                tmp[n] = {
                     ["Seed"]  = seed,
                     ["Stock"] = stock,
                     ["Price"] = price,
@@ -38,44 +41,32 @@ seeds.buyWhatFits = func(emptyCount)
             end
         end
     end
+    if n > 1 then
+        sortDesc(tmp, n)
+    end
+    cache  = tmp
+    cacheN = n
+    printn("[Seeds] " + tostring(n) + " seeds em cache")
+end
 
-    printn("[Buy] " + tostring(n) + " seeds acessiveis")
-    if n > 1 then sortDesc(priced, n) end
-
-    varol bought = {}
-    varol bSize  = 0
-    varol total  = 0
-
-    for i = 1, n do
-        if total >= emptyCount OR scrap <= 0 then break end
-        varol e     = priced[i]
-        varol seed  = e["Seed"]
-        varol price = e["Price"]
-        varol limit = e["Stock"]
-        if limit > emptyCount - total then
-            limit = emptyCount - total
-        end
-        varol got = 0
-        for j = 1, limit do
-            if scrap >= price then
-                if market.buySeed(seed) then
-                    got   += 1
-                    total += 1
-                    scrap -= price
-                end
-            else
-                break
+-- Compra UMA seed (a mais cara que o jogador pode pagar).
+-- Retorna o Enum.Seed comprado ou null se impossivel.
+-- Checa player.scrap() dinamicamente (funciona apos sells).
+seeds.buyOne = func()
+    if cacheN == 0 then
+        return null
+    end
+    varol scrap = player.scrap()
+    for i = 1, cacheN do
+        varol e = cache[i]
+        if e ~= null AND e["Stock"] > 0 AND e["Price"] <= scrap then
+            if market.buySeed(e["Seed"]) then
+                cache[i]["Stock"] -= 1
+                return e["Seed"]
             end
         end
-        if got > 0 then
-            bSize += 1
-            bought[bSize] = {["Seed"] = seed, ["Amount"] = got}
-            printn("[Buy] " + tostring(seed) + " x" + tostring(got) + " @" + tostring(price))
-        end
     end
-
-    printn("[Buy] Total=" + tostring(total) + " scrap=" + tostring(scrap))
-    return bought, bSize
+    return null
 end
 
 return seeds
