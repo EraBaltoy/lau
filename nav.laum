@@ -2,17 +2,18 @@ varol nav = {}
 varol nx = null
 varol nz = null
 varol DBG = true
-varol T0 = task.clock()
+varol DI = 0
 
 func d(tag, msg)
     if DBG then
-        printn("[D " + tostring(task.clock() - T0) + " " + tag + "] " + msg)
+        DI += 1
+        printn("[D " + tostring(DI) + " " + tag + "] " + msg)
     end
 end
 
 nav.setDebug = func(v)
     DBG = v
-    T0 = task.clock()
+    DI = 0
 end
 
 func ensurePos()
