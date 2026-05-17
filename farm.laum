@@ -1,11 +1,12 @@
-varol nav = req("nav.laum")
-varol seeds = req("seeds.laum")
+varol nav = null
+varol seeds = null
 varol farm = {}
 varol planted = {}
 varol pSize = 0
 varol lastSize = 0
 varol DBG = true
 varol DI = 0
+varol seedDirty = false
 
 func d(tag, msg)
     if DBG then
@@ -14,15 +15,47 @@ func d(tag, msg)
     end
 end
 
+func getNav()
+    if nav == null then
+        d("req", "nav begin")
+        nav = req("nav.laum")
+        nav.setDebug(DBG)
+        d("req", "nav end")
+    end
+    return nav
+end
+
+func getSeeds()
+    if seeds == null then
+        d("req", "seeds begin")
+        seeds = req("seeds.laum")
+        seeds.setDebug(DBG)
+        if seedDirty then
+            seeds.markDirty()
+            seedDirty = false
+        end
+        d("req", "seeds end")
+    end
+    return seeds
+end
+
 farm.setDebug = func(v)
     DBG = v
     DI = 0
-    nav.setDebug(v)
-    seeds.setDebug(v)
+    if nav ~= null then
+        nav.setDebug(v)
+    end
+    if seeds ~= null then
+        seeds.setDebug(v)
+    end
 end
 
 farm.markDirty = func()
-    seeds.markDirty()
+    if seeds == null then
+        seedDirty = true
+    else
+        seeds.markDirty()
+    end
 end
 
 func addPlant(x, z)
@@ -32,7 +65,8 @@ end
 
 func plantHere(x, z)
     d("plant", "buy " + tostring(x) + "," + tostring(z))
-    varol seed = seeds.buyOne()
+    varol s = getSeeds()
+    varol seed = s.buyOne()
     if seed == null then
         d("plant", "no seed")
         return false
@@ -58,14 +92,16 @@ farm.smartScan = func()
     pSize = 0
     lastSize = player.getTileNumber()
     d("farm", "seeds.beginScan")
-    seeds.beginScan()
+    varol s = getSeeds()
+    s.beginScan()
     d("farm", "scan begin")
     varol cr = 0
     varol ha = 0
     varol pl = 0
     varol wa = 0
 
-    nav.scan(func(x, z)
+    varol n = getNav()
+    n.scan(func(x, z)
         d("tile", "at " + tostring(x) + "," + tostring(z) + " getPlant")
         varol plant = drone.getPlant()
         if plant == null then
@@ -119,7 +155,7 @@ farm.smartScan = func()
     end)
 
     d("farm", "scan end home")
-    nav.home()
+    n.home()
     d("farm", "home end")
     printn("S " + tostring(cr) + "C " + tostring(ha) + "H " + tostring(pl) + "P " + tostring(wa) + "W " + tostring(pSize))
     return cr, ha, pl, wa
