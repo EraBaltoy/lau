@@ -3,8 +3,6 @@ varol DBG = true
 varol DI = 0
 varol nav = null
 varol farm = null
-varol PB_KEY = ""
-varol PB_PASTE = ""
 
 func d(tag, msg)
     if DBG then
@@ -50,23 +48,15 @@ func status()
     varol cur = player.getTileNumber()
     varol size = cur - 1
     varol total = (size * 2 + 1) * (size * 2 + 1)
-    varol pb = "OFF"
-    if PB_KEY ~= "" then
-        pb = "ON"
-        if PB_PASTE ~= "" then
-            pb = pb + " " + PB_PASTE
-        end
-    end
     printn("Farm " + tostring(size) + " tiles " + tostring(total))
-    printn("P " + tostring(ps) + " scan " + tostring(ls) + " PB " + pb)
+    printn("P " + tostring(ps) + " scan " + tostring(ls))
     if cur ~= ls AND ls ~= 0 then
         printn("WARN remap: smart")
     end
 end
-
 func help()
-    printn("smart|sell|save|load k|pbkey k")
-    printn("status|home|pos|sync|inv|debug on|off")
+    printn("smart|sell|status|home|pos")
+    printn("sync|inv|debug on|debug off")
 end
 
 cmds.init = func()
@@ -101,47 +91,6 @@ cmds.init = func()
         elseif msg == "debug off" then
             setDbg(false)
             player.sent("debug off")
-        elseif msg == "save" then
-            if PB_KEY == "" then
-                player.sent("pbkey <key>")
-            else
-                DI = 0
-                d("save", "start")
-                varol f = getFarm()
-                varol n = getNav()
-                d("save", "export")
-                varol json = f.exportData()
-                d("save", "pb post")
-                varol key = n.pbSave(PB_KEY, json)
-                if key ~= null then
-                    PB_PASTE = key
-                    player.sent("save " + key)
-                else
-                    player.sent("save err")
-                end
-            end
-        elseif string.sub(msg, 1, 5) == "load " then
-            DI = 0
-            d("load", "start")
-            varol key = string.sub(msg, 6)
-            varol n = getNav()
-            d("load", "pb get")
-            varol json = n.pbLoad(key)
-            if json ~= null then
-                varol f = getFarm()
-                d("load", "import")
-                if f.importData(json) then
-                    PB_PASTE = key
-                    player.sent("load OK")
-                else
-                    player.sent("load err")
-                end
-            else
-                player.sent("load err")
-            end
-        elseif string.sub(msg, 1, 6) == "pbkey " then
-            PB_KEY = string.sub(msg, 7)
-            player.sent("pb OK")
         elseif msg == "status" then
             d("cmd", "status")
             status()

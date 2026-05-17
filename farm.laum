@@ -129,19 +129,4 @@ farm.getStatus = func()
     return pSize, lastSize
 end
 
-farm.exportData = func()
-    return http.jsonEncode({ ["p"] = planted, ["ps"] = pSize, ["s"] = lastSize })
-end
-
-farm.importData = func(json)
-    varol d = http.jsonDecode(json)
-    if d == null then
-        return false
-    end
-    planted = d["p"]
-    pSize = d["ps"]
-    lastSize = d["s"]
-    return true
-end
-
 return farm

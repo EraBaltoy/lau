@@ -116,31 +116,4 @@ nav.scan = func(cb)
     d("scan", "done")
 end
 
-nav.pbSave = func(apiKey, content)
-    varol body = "api_dev_key=" + apiKey
-    body = body + "&api_option=paste&api_paste_private=2&api_paste_name=farmbot"
-    body = body + "&api_paste_code=" + content
-    d("pb", "post begin")
-    varol ok, res = pcall(func()
-        return http.post("https://pastebin.com/api/api_post.php", body)
-    end)
-    d("pb", "post end " + tostring(ok))
-    if NOT ok then
-        return null
-    end
-    return string.sub(tostring(res), 22)
-end
-
-nav.pbLoad = func(key)
-    d("pb", "get begin")
-    varol ok, res = pcall(func()
-        return http.get("https://pastebin.com/raw/" + key)
-    end)
-    d("pb", "get end " + tostring(ok))
-    if NOT ok then
-        return null
-    end
-    return tostring(res)
-end
-
 return nav
