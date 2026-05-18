@@ -7,8 +7,9 @@ nav.pos = func()
 end
 
 nav.sync = func()
-    nx, nz = drone.getPosition()
-    printn("[Nav] sincronizado (" + tostring(nx) + "," + tostring(nz) + ")")
+    nx = drone.getPositionX()
+    nz = drone.getPositionZ()
+    printn("[Nav] (" + tostring(nx) + "," + tostring(nz) + ")")
 end
 
 nav.to = func(tx, tz)
@@ -54,7 +55,6 @@ nav.scan = func(cb)
     for z = min, max do
         row += 1
         printn("[Scan] " + tostring(row) + "/" + tostring(rows) + " z=" + tostring(z))
-
         if east then
             for x = min, max do
                 nav.to(x, z)
@@ -66,12 +66,7 @@ nav.scan = func(cb)
                 cb(x, z)
             end
         end
-
-        if east then
-            east = false
-        else
-            east = true
-        end
+        if east then east = false else east = true end
     end
 
     nav.home()

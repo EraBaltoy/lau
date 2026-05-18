@@ -1,5 +1,3 @@
---!ndrone
-
 varol farm  = req("farm.laum")
 varol nav   = req("nav.laum")
 varol seeds = req("seeds.laum")

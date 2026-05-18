@@ -1,5 +1,5 @@
 varol seeds  = {}
-varol cache  = {}
+varol scache = {}
 varol cacheN = 0
 varol dirty  = false
 
@@ -16,7 +16,7 @@ func sortDesc(lst, n)
 end
 
 seeds.refresh = func()
-    cache  = {}
+    scache = {}
     cacheN = 0
     dirty  = false
     varol raw = market.getSeedStock()
@@ -44,7 +44,7 @@ seeds.refresh = func()
     if n > 1 then
         sortDesc(tmp, n)
     end
-    cache  = tmp
+    scache = tmp
     cacheN = n
     printn("[Seeds] " + tostring(n) + " seeds disponiveis")
 end
@@ -63,10 +63,10 @@ seeds.buyOne = func()
     end
     varol scrap = player.scrap()
     for i = 1, cacheN do
-        varol e = cache[i]
+        varol e = scache[i]
         if e ~= null AND e["Amount"] > 0 AND e["Price"] <= scrap then
             if market.buySeed(e["Seed"]) then
-                cache[i]["Amount"] -= 1
+                scache[i]["Amount"] -= 1
                 return e["Seed"]
             end
         end
