@@ -10,20 +10,25 @@ farm.scan = func()
     varol ha = 0
     varol pl = 0
     varol wa = 0
+    varol sk = 0
 
     nav.scan(func(x, z)
         varol plant = drone.getPlant()
 
         if plant == null then
-            varol seed = seeds.buyOne()
-            if seed ~= null then
-                varol ok, e = pcall(func()
-                    drone.plant(seed)
-                end)
-                if ok then
-                    drone.useItem(Enum.Gear.Watering_Can)
-                    pl += 1
+            if seeds.canAfford() then
+                varol seed = seeds.buyOne()
+                if seed ~= null then
+                    varol ok, e = pcall(func()
+                        drone.plant(seed)
+                    end)
+                    if ok then
+                        drone.useItem(Enum.Gear.Watering_Can)
+                        pl += 1
+                    end
                 end
+            else
+                sk += 1
             end
 
         elseif plant["HasFruit"] then
@@ -40,15 +45,19 @@ farm.scan = func()
                 drone.crop()
                 cr += 1
                 market.sellAllItem()
-                varol seed = seeds.buyOne()
-                if seed ~= null then
-                    varol ok, e = pcall(func()
-                        drone.plant(seed)
-                    end)
-                    if ok then
-                        drone.useItem(Enum.Gear.Watering_Can)
-                        pl += 1
+                if seeds.canAfford() then
+                    varol seed = seeds.buyOne()
+                    if seed ~= null then
+                        varol ok, e = pcall(func()
+                            drone.plant(seed)
+                        end)
+                        if ok then
+                            drone.useItem(Enum.Gear.Watering_Can)
+                            pl += 1
+                        end
                     end
+                else
+                    sk += 1
                 end
             else
                 drone.useItem(Enum.Gear.Watering_Can)
@@ -58,7 +67,10 @@ farm.scan = func()
     end)
 
     varol log = tostring(cr) + "C " + tostring(ha) + "H " + tostring(pl) + "P " + tostring(wa) + "W"
-    printn("[Farm] " + log)
+    if sk > 0 then
+        log = log + " " + tostring(sk) + "skip"
+    end
+    printn("[Farm] " + log + " | scrap: " + tostring(player.scrap()))
     player.sent("Scan OK! " + log)
 end
 

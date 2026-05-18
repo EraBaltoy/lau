@@ -1,5 +1,6 @@
-varol farm = req("farm.laum")
-varol nav  = req("nav.laum")
+varol farm  = req("farm.laum")
+varol nav   = req("nav.laum")
+varol seeds = req("seeds.laum")
 
 varol cmds = {}
 
@@ -41,23 +42,34 @@ cmds.init = func(toggleAuto)
             varol t = player.getInventorySize()
             printn("Frutas: " + tostring(f) + "/" + tostring(c) + " | Itens: " + tostring(t))
 
+        elseif string.sub(msg, 1, 8) == "reserve " then
+            varol n = tonumber(string.sub(msg, 9))
+            if n ~= null then
+                seeds.setReserve(n)
+                player.sent("Reserva de scrap: " + tostring(n))
+            else
+                player.alert("Uso: reserve <numero>")
+            end
+
         elseif msg == "status" then
             varol t  = player.getTileNumber()
             varol sq = (t * 2 - 1) * (t * 2 - 1)
             printn("=== STATUS ===")
-            printn("Scrap : " + tostring(player.scrap()))
-            printn("Tiles : " + tostring(t) + " (" + tostring(sq) + " total)")
-            printn("Clima : " + game.weather())
+            printn("Scrap   : " + tostring(player.scrap()))
+            printn("Reserva : " + tostring(seeds.getReserve()))
+            printn("Comprar : " + tostring(seeds.canAfford()))
+            printn("Tiles   : " + tostring(t) + " (" + tostring(sq) + " total)")
+            printn("Clima   : " + game.weather())
 
         elseif msg == "help" then
-            printn("auto    liga/desliga loop automatico")
-            printn("scan    varredura manual")
-            printn("sell    vende todos os itens")
-            printn("home    retorna drone a (0,0)")
-            printn("pos     posicao atual do drone")
-            printn("sync    sincroniza posicao")
-            printn("inv     inventario")
-            printn("status  estado completo")
+            printn("auto           liga/desliga loop automatico")
+            printn("scan           varredura manual")
+            printn("sell           vende todos os itens")
+            printn("home           retorna drone a (0,0)")
+            printn("pos / sync     posicao do drone")
+            printn("inv            inventario")
+            printn("reserve <n>    reserva minima de scrap")
+            printn("status         estado completo")
 
         end
     end)
