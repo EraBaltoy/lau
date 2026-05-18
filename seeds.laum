@@ -1,50 +1,42 @@
-varol seeds      = {}
-varol scache     = {}
-varol scacheN    = 0
-varol stockDirty = false
-
--- Chamado pelo evento changedSeedStock (mesmo durante scan).
--- Forca refresh antes da proxima compra.
-seeds.markDirty = func()
-    stockDirty = true
-    printn("[Seeds] Estoque mudou, cache sera atualizado.")
-end
+varol seeds  = {}
+varol cache  = {}
+varol cacheN = 0
+varol dirty  = false
 
 func sortDesc(lst, n)
     for i = 1, n - 1 do
         for j = 1, n - i do
             if lst[j]["Price"] < lst[j + 1]["Price"] then
-                varol tmp  = lst[j]
-                lst[j]     = lst[j + 1]
-                lst[j + 1] = tmp
+                varol tmp    = lst[j]
+                lst[j]       = lst[j + 1]
+                lst[j + 1]   = tmp
             end
         end
     end
 end
 
--- Consulta o mercado uma unica vez e monta scache ordenado por preco desc.
--- Chamar no inicio de cada smartScan.
 seeds.refresh = func()
-    scache  = {}
-    scacheN = 0
+    cache  = {}
+    cacheN = 0
+    dirty  = false
     varol raw = market.getSeedStock()
     if raw == null then
-        printn("[Seeds] Mercado inacessivel.")
+        printn("[Seeds] mercado inacessivel")
         return
     end
-    varol n = 0
+    varol n   = 0
     varol tmp = {}
     for i, entry inpairs(raw) do
-        varol seed  = entry["Seed"]
-        varol stock = entry["Stock"]
-        if seed ~= null AND stock ~= null AND stock > 0 then
+        varol seed   = entry["Seed"]
+        varol amount = entry["Amount"]
+        if seed ~= null AND amount ~= null AND amount > 0 then
             varol price = market.getSeedPrice(seed)
             if price ~= null AND price > 0 then
                 n += 1
                 tmp[n] = {
-                    ["Seed"]  = seed,
-                    ["Stock"] = stock,
-                    ["Price"] = price,
+                    ["Seed"]   = seed,
+                    ["Amount"] = amount,
+                    ["Price"]  = price
                 }
             end
         end
@@ -52,29 +44,29 @@ seeds.refresh = func()
     if n > 1 then
         sortDesc(tmp, n)
     end
-    scache  = tmp
-    scacheN = n
-    printn("[Seeds] " + tostring(n) + " seeds em scache")
+    cache  = tmp
+    cacheN = n
+    printn("[Seeds] " + tostring(n) + " seeds disponiveis")
 end
 
--- Compra UMA seed (a mais cara que o jogador pode pagar).
--- Retorna o Enum.Seed comprado ou null se impossivel.
--- Se o estoque mudou desde o ultimo refresh, atualiza o cache primeiro.
--- Checa player.scrap() dinamicamente (funciona apos sells).
+seeds.markDirty = func()
+    dirty = true
+    printn("[Seeds] cache expirado")
+end
+
 seeds.buyOne = func()
-    if stockDirty then
+    if dirty OR cacheN == 0 then
         seeds.refresh()
-        stockDirty = false
     end
-    if scacheN == 0 then
+    if cacheN == 0 then
         return null
     end
     varol scrap = player.scrap()
-    for i = 1, scacheN do
-        varol e = scache[i]
-        if e ~= null AND e["Stock"] > 0 AND e["Price"] <= scrap then
+    for i = 1, cacheN do
+        varol e = cache[i]
+        if e ~= null AND e["Amount"] > 0 AND e["Price"] <= scrap then
             if market.buySeed(e["Seed"]) then
-                scache[i]["Stock"] -= 1
+                cache[i]["Amount"] -= 1
                 return e["Seed"]
             end
         end
