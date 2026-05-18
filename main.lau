@@ -23,53 +23,13 @@ market.changedSeedStock:connect(func()
     seeds.markDirty()
 end)
 
-player.chatted:connect(func(msg)
-    msg = string.lower(msg)
-
-    if msg == "auto" then
-        if autoOn then
-            autoOn = false
-            player.sent("Auto-farm OFF")
-        else
-            autoOn = true
-            player.sent("Auto-farm ON")
-        end
-
-    elseif msg == "scan" then
-        player.sent("Iniciando scan...")
-        varol ok, err = pcall(func()
-            farm.scan()
-        end)
-        if NOT ok then
-            player.alert("Erro: " + tostring(err))
-        end
-
-    elseif msg == "sell" then
-        market.sellAllItem()
-        player.sent("Vendido! Scrap: " + tostring(player.scrap()))
-
-    elseif msg == "home" then
-        nav.home()
-        player.sent("Home!")
-
-    elseif msg == "status" then
-        varol t  = player.getTileNumber()
-        varol sq = (t * 2 - 1) * (t * 2 - 1)
-        varol st = "OFF"
-        if autoOn then st = "ON" end
-        printn("=== STATUS ===")
-        printn("Auto  : " + st)
-        printn("Scrap : " + tostring(player.scrap()))
-        printn("Tiles : " + tostring(t) + " (" + tostring(sq) + " total)")
-        printn("Clima : " + game.weather())
-
-    elseif msg == "help" then
-        printn("auto    liga/desliga loop automatico")
-        printn("scan    varredura manual unica")
-        printn("sell    vende todos os itens")
-        printn("home    retorna drone a (0,0)")
-        printn("status  estado atual")
-
+cmds.init(func()
+    if autoOn then
+        autoOn = false
+        player.sent("Auto-farm OFF")
+    else
+        autoOn = true
+        player.sent("Auto-farm ON")
     end
 end)
 
@@ -79,7 +39,7 @@ while true do
             farm.scan()
         end)
         if NOT ok then
-            player.alert("Erro no loop: " + tostring(err))
+            player.alert("Erro: " + tostring(err))
             autoOn = false
         end
     end
