@@ -32,15 +32,15 @@ seeds.refresh = func()
     varol tmp = {}
     for i, entry inpairs(raw) do
         varol seed   = entry["Seed"]
-        varol amount = entry["Amount"]
+        varol amount = entry["Stock"]
         if seed ~= null AND amount ~= null AND amount > 0 then
             varol price = market.getSeedPrice(seed)
             if price ~= null AND price > 0 then
                 n += 1
                 tmp[n] = {
-                    ["Seed"]   = seed,
-                    ["Amount"] = amount,
-                    ["Price"]  = price
+                    ["Seed"]  = seed,
+                    ["Stock"] = amount,
+                    ["Price"] = price
                 }
             end
         end
@@ -70,7 +70,7 @@ seeds.canAfford = func()
     varol scrap = player.scrap()
     for i = 1, cacheN do
         varol e = scache[i]
-        if e ~= null AND e["Amount"] > 0 AND scrap - e["Price"] >= minScrap then
+        if e ~= null AND e["Stock"] > 0 AND scrap - e["Price"] >= minScrap then
             return true
         end
     end
@@ -83,9 +83,9 @@ seeds.buyOne = func()
     varol scrap = player.scrap()
     for i = 1, cacheN do
         varol e = scache[i]
-        if e ~= null AND e["Amount"] > 0 AND scrap - e["Price"] >= minScrap then
+        if e ~= null AND e["Stock"] > 0 AND scrap - e["Price"] >= minScrap then
             if market.buySeed(e["Seed"]) then
-                scache[i]["Amount"] -= 1
+                scache[i]["Stock"] -= 1
                 seeds.lastPrice = e["Price"]
                 return e["Seed"]
             end
@@ -121,7 +121,7 @@ seeds.stock = func()
     for i = 1, cacheN do
         varol e = scache[i]
         if e ~= null then
-            varol line = tostring(i) + ". " + tostring(e["Seed"]) + " $" + tostring(e["Price"]) + " x" + tostring(e["Amount"])
+            varol line = tostring(i) + ". " + tostring(e["Seed"]) + " $" + tostring(e["Price"]) + " x" + tostring(e["Stock"])
             varol d = dtrack[tostring(e["Seed"])]
             if d ~= null AND d["n"] > 0 then
                 varol avg = math.round(d["t"] / d["n"] / 60)
