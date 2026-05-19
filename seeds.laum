@@ -31,15 +31,15 @@ seeds.refresh = func()
     varol n   = 0
     varol tmp = {}
     for i, entry inpairs(raw) do
-        varol seed   = entry["Seed"]
-        varol amount = entry["Stock"]
-        if seed ~= null AND amount ~= null AND amount > 0 then
+        varol seed  = entry["Seed"]
+        varol stock = entry["Stock"]
+        if seed ~= null AND stock ~= null AND stock > 0 then
             varol price = market.getSeedPrice(seed)
             if price ~= null AND price > 0 then
                 n += 1
                 tmp[n] = {
                     ["Seed"]  = seed,
-                    ["Stock"] = amount,
+                    ["Stock"] = stock,
                     ["Price"] = price
                 }
             end
@@ -77,31 +77,21 @@ seeds.canAfford = func()
     return false
 end
 
-seeds.buyOne = func()
-    if dirty OR cacheN == 0 then seeds.refresh() end
-    if cacheN == 0 then return null end
-    varol scrap = player.scrap()
-    for i = 1, cacheN do
-        varol e = scache[i]
-        if e ~= null AND e["Stock"] > 0 AND scrap - e["Price"] >= minScrap then
-            if market.buySeed(e["Seed"]) then
-                scache[i]["Stock"] -= 1
-                seeds.lastPrice = e["Price"]
-                return e["Seed"]
-            end
-        end
-    end
-    return null
-end
-
-seeds.trackDuration = func(seedStr, secs)
+seeds.track = func(seedStr, secs, profit)
     if secs <= 0 then return end
     if dtrack[seedStr] == null then
-        dtrack[seedStr] = {["t"] = secs, ["n"] = 1}
+        dtrack[seedStr] = {["t"] = secs, ["p"] = profit, ["n"] = 1}
     else
         dtrack[seedStr]["t"] += secs
+        dtrack[seedStr]["p"] += profit
         dtrack[seedStr]["n"] += 1
     end
+end
+
+seeds.profitPerMin = func(seedStr)
+    varol d = dtrack[seedStr]
+    if d == null OR d["t"] == 0 then return null end
+    return math.round(d["p"] * 60 / d["t"])
 end
 
 seeds.estimateWait = func(seedStr, pct)
@@ -109,6 +99,45 @@ seeds.estimateWait = func(seedStr, pct)
     if d == null OR d["n"] == 0 then return null end
     varol avg = d["t"] / d["n"]
     return math.round(avg * (100 - pct) / 100)
+end
+
+seeds.buyOne = func()
+    if dirty OR cacheN == 0 then seeds.refresh() end
+    if cacheN == 0 then return null end
+    varol scrap   = player.scrap()
+    varol maxPpm  = 0
+    for i = 1, cacheN do
+        if scache[i] ~= null then
+            varol ppm = seeds.profitPerMin(tostring(scache[i]["Seed"]))
+            if ppm ~= null AND ppm > maxPpm then maxPpm = ppm end
+        end
+    end
+    varol bestIdx   = null
+    varol bestScore = null
+    for i = 1, cacheN do
+        varol e = scache[i]
+        if e ~= null AND e["Stock"] > 0 AND scrap - e["Price"] >= minScrap then
+            varol ppm   = seeds.profitPerMin(tostring(e["Seed"]))
+            varol score = ppm
+            if score == null then score = maxPpm end
+            if bestIdx == null then
+                bestIdx   = i
+                bestScore = score
+            elseif score > bestScore then
+                bestIdx   = i
+                bestScore = score
+            end
+        end
+    end
+    if bestIdx == null then return null end
+    varol e = scache[bestIdx]
+    if market.buySeed(e["Seed"]) then
+        scache[bestIdx]["Stock"] -= 1
+        seeds.lastPrice = e["Price"]
+        return e["Seed"]
+    end
+    scache[bestIdx]["Stock"] = 0
+    return null
 end
 
 seeds.stock = func()
@@ -122,10 +151,14 @@ seeds.stock = func()
         varol e = scache[i]
         if e ~= null then
             varol line = tostring(i) + ". " + tostring(e["Seed"]) + " $" + tostring(e["Price"]) + " x" + tostring(e["Stock"])
-            varol d = dtrack[tostring(e["Seed"])]
+            varol d    = dtrack[tostring(e["Seed"])]
             if d ~= null AND d["n"] > 0 then
+                varol ppm = seeds.profitPerMin(tostring(e["Seed"]))
                 varol avg = math.round(d["t"] / d["n"] / 60)
                 line = line + " ~" + tostring(avg) + "min"
+                if ppm ~= null then
+                    line = line + " " + tostring(ppm) + "/min"
+                end
             end
             printn(line)
         end

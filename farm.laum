@@ -1,15 +1,16 @@
-varol nav   = req("nav.laum")
-varol seeds = req("seeds.laum")
-varol farm  = {}
+varol nav       = req("nav.laum")
+varol seeds     = req("seeds.laum")
+varol farm      = {}
 
-varol pdata = {}
-varol hlog  = {}
-varol hlogN = 0
-varol sCr   = 0
-varol sHa   = 0
-varol sPl   = 0
-varol sSk   = 0
-varol swMin = null
+varol pdata     = {}
+varol hlog      = {}
+varol hlogN     = 0
+varol gearTiles = {}
+varol sCr       = 0
+varol sHa       = 0
+varol sPl       = 0
+varol sSk       = 0
+varol swMin     = null
 
 farm.lastWait = null
 
@@ -42,7 +43,7 @@ func onHarvest(key, earned)
     if d == null then return end
     varol dur    = math.round(task.time() - d["t"])
     varol profit = earned - d["p"]
-    seeds.trackDuration(d["s"], dur)
+    seeds.track(d["s"], dur, profit)
     if hlogN >= 20 then
         list.remove(hlog, 1)
         hlogN -= 1
@@ -71,6 +72,9 @@ func tryPlant(x, z)
         water()
         sPl += 1
         onPlant(tkey(x, z), seed)
+    else
+        gearTiles[tkey(x, z)] = true
+        printn("[Farm] gear (" + tostring(x) + "," + tostring(z) + ")")
     end
 end
 
@@ -79,7 +83,9 @@ func processTile(x, z)
     varol key   = tkey(x, z)
 
     if plant == null then
-        if seeds.canAfford() then
+        if gearTiles[key] then
+            return
+        elseif seeds.canAfford() then
             tryPlant(x, z)
         else
             sSk += 1
@@ -181,10 +187,16 @@ farm.showLog = func()
 end
 
 farm.clearLog = func()
-    hlog  = {}
-    hlogN = 0
-    pdata = {}
+    hlog      = {}
+    hlogN     = 0
+    pdata     = {}
+    gearTiles = {}
     printn("[Log] limpo")
+end
+
+farm.clearGears = func()
+    gearTiles = {}
+    printn("[Farm] mapa de gears resetado")
 end
 
 return farm

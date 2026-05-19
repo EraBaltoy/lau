@@ -37,6 +37,9 @@ cmds.init = func(toggleAuto)
         elseif msg == "clearlog" then
             farm.clearLog()
 
+        elseif msg == "clearmap" then
+            farm.clearGears()
+
         elseif msg == "home" then
             nav.home()
             player.sent("Home!")
@@ -90,6 +93,7 @@ cmds.init = func(toggleAuto)
             printn("stock          estoque + tempo medio de crescimento")
             printn("log            historico: profit/duracao/weather")
             printn("clearlog       limpa historico e rastreamento")
+            printn("clearmap       reseta mapa de gears detectados")
             printn("home/pos/sync  navegacao do drone")
             printn("inv            inventario")
             printn("reserve <n>    reserva minima de scrap")
