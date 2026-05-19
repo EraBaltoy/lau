@@ -1,74 +1,82 @@
-varol nav = {}
+varol nav    = {}
+varol nx     = drone.getPositionX()
+varol nz     = drone.getPositionZ()
+varol gTiles = {}
 
-varol nx, nz = drone.getPosition()
-
-nav.pos = func()
-    return nx, nz
-end
+nav.pos  = func() return nx, nz end
 
 nav.sync = func()
-    nx = drone.getPositionX()
-    nz = drone.getPositionZ()
+    nx = drone.getPositionX(); nz = drone.getPositionZ()
     printn("[Nav] (" + tostring(nx) + "," + tostring(nz) + ")")
 end
 
 nav.to = func(tx, tz)
-    varol dx = tx - nx
-    varol dz = tz - nz
-
-    if dx > 0 then
-        for i = 1, dx do
-            drone.move(Enum.Direction.East)
-        end
-    elseif dx < 0 then
-        for i = 1, -dx do
-            drone.move(Enum.Direction.West)
-        end
-    end
-
-    if dz > 0 then
-        for i = 1, dz do
-            drone.move(Enum.Direction.South)
-        end
-    elseif dz < 0 then
-        for i = 1, -dz do
-            drone.move(Enum.Direction.North)
-        end
-    end
-
-    nx = tx
-    nz = tz
+    varol dx = tx - nx; varol dz = tz - nz
+    if dx > 0 then for i=1,dx do drone.move(Enum.Direction.East) end
+    elseif dx < 0 then for i=1,-dx do drone.move(Enum.Direction.West) end end
+    if dz > 0 then for i=1,dz do drone.move(Enum.Direction.South) end
+    elseif dz < 0 then for i=1,-dz do drone.move(Enum.Direction.North) end end
+    nx = tx; nz = tz
 end
 
-nav.home = func()
-    nav.to(0, 0)
+nav.home = func() nav.to(0, 0) end
+
+nav.isGear = func(x, z)
+    return gTiles[tostring(x) + "," + tostring(z)] == true
+end
+nav.markGear = func(x, z)
+    gTiles[tostring(x) + "," + tostring(z)] = true
+end
+nav.clearGears = func()
+    gTiles = {}; printn("[Nav] gears limpo")
+end
+
+varol _col = 0
+func _ct(x, z)
+    if NOT nav.isGear(x, z) then
+        nav.to(x, z)
+        varol pl = drone.getPlant()
+        if pl ~= null then
+            if pl["HasFruit"] AND drone.canHarvest() then
+                drone.harvest(); market.sellAllItem(); _col += 1
+            elseif NOT pl["HasFruit"] AND drone.canCrop() then
+                drone.crop(); market.sellAllItem(); _col += 1
+            end
+        end
+    end
+end
+
+nav.collect = func()
+    varol r = player.getTileNumber() - 1
+    varol min = 0 - r; varol max = r; varol east = true
+    _col = 0
+    for z = min, max do
+        if east then
+            for x = min, max do _ct(x, z) end
+        else
+            for x = max, min, -1 do _ct(x, z) end
+        end
+        if east then east = false else east = true end
+    end
+    nav.home()
+    printn("[Col] " + tostring(_col) + " coletados")
+    return _col
 end
 
 nav.scan = func(cb)
-    varol r    = player.getTileNumber() - 1
-    varol min  = 0 - r
-    varol max  = r
-    varol east = true
-    varol rows = max - min + 1
-    varol row  = 0
-
+    varol r = player.getTileNumber() - 1
+    varol min = 0 - r; varol max = r
+    varol east = true; varol rows = max - min + 1; varol row = 0
     for z = min, max do
         row += 1
         printn("[Scan] " + tostring(row) + "/" + tostring(rows) + " z=" + tostring(z))
         if east then
-            for x = min, max do
-                nav.to(x, z)
-                cb(x, z)
-            end
+            for x = min, max do nav.to(x, z); cb(x, z) end
         else
-            for x = max, min, -1 do
-                nav.to(x, z)
-                cb(x, z)
-            end
+            for x = max, min, -1 do nav.to(x, z); cb(x, z) end
         end
         if east then east = false else east = true end
     end
-
     nav.home()
     printn("[Scan] concluido")
 end

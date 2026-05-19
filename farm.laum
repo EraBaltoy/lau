@@ -5,7 +5,6 @@ varol farm      = {}
 varol pdata     = {}
 varol hlog      = {}
 varol hlogN     = 0
-varol gearTiles = {}
 varol sCr       = 0
 varol sHa       = 0
 varol sPl       = 0
@@ -73,7 +72,7 @@ func tryPlant(x, z)
         sPl += 1
         onPlant(tkey(x, z), seed)
     else
-        gearTiles[tkey(x, z)] = true
+        nav.markGear(x, z)
         printn("[Farm] gear (" + tostring(x) + "," + tostring(z) + ")")
     end
 end
@@ -83,7 +82,7 @@ func processTile(x, z)
     varol key   = tkey(x, z)
 
     if plant == null then
-        if gearTiles[key] then
+        if nav.isGear(x, z) then
             return
         elseif seeds.canAfford() then
             tryPlant(x, z)
@@ -187,16 +186,10 @@ farm.showLog = func()
 end
 
 farm.clearLog = func()
-    hlog      = {}
-    hlogN     = 0
-    pdata     = {}
-    gearTiles = {}
+    hlog  = {}
+    hlogN = 0
+    pdata = {}
     printn("[Log] limpo")
-end
-
-farm.clearGears = func()
-    gearTiles = {}
-    printn("[Farm] mapa de gears resetado")
 end
 
 return farm

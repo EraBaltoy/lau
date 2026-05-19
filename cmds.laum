@@ -4,7 +4,7 @@ varol seeds = req("seeds.laum")
 
 varol cmds = {}
 
-cmds.init = func(toggleAuto)
+cmds.init = func(toggleAuto, showGears, planGears)
     player.chatted:connect(func(msg)
         msg = string.lower(msg)
 
@@ -37,8 +37,18 @@ cmds.init = func(toggleAuto)
         elseif msg == "clearlog" then
             farm.clearLog()
 
+        elseif msg == "col" then
+            varol ok, err = pcall(func() nav.collect() end)
+            if NOT ok then player.alert("Erro: " + tostring(err)) end
+
+        elseif msg == "gears" then
+            showGears()
+
+        elseif msg == "gplan" then
+            planGears()
+
         elseif msg == "clearmap" then
-            farm.clearGears()
+            nav.clearGears()
 
         elseif msg == "home" then
             nav.home()
@@ -87,13 +97,16 @@ cmds.init = func(toggleAuto)
 
         elseif msg == "help" then
             printn("auto           liga/desliga loop (scan completo)")
+            printn("col            coleta apenas plantas prontas")
             printn("tile           processa tile atual")
             printn("scan           varre toda a fazenda")
             printn("sell           vende todos os itens")
             printn("stock          estoque + tempo medio de crescimento")
+            printn("gears          mostra plano de gears atual")
+            printn("gplan          gera novo plano de gears")
             printn("log            historico: profit/duracao/weather")
             printn("clearlog       limpa historico e rastreamento")
-            printn("clearmap       reseta mapa de gears detectados")
+            printn("clearmap       reseta mapa de gears")
             printn("home/pos/sync  navegacao do drone")
             printn("inv            inventario")
             printn("reserve <n>    reserva minima de scrap")
