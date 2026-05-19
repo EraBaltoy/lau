@@ -11,6 +11,9 @@ cmds.init = func(toggleAuto)
         if msg == "auto" then
             toggleAuto()
 
+        elseif msg == "tile" then
+            farm.doTile()
+
         elseif msg == "scan" then
             player.sent("Iniciando scan...")
             varol ok, err = pcall(func()
@@ -23,6 +26,16 @@ cmds.init = func(toggleAuto)
         elseif msg == "sell" then
             market.sellAllItem()
             player.sent("Vendido! Scrap: " + tostring(player.scrap()))
+
+        elseif msg == "stock" then
+            seeds.refresh()
+            seeds.stock()
+
+        elseif msg == "log" then
+            farm.showLog()
+
+        elseif msg == "clearlog" then
+            farm.clearLog()
 
         elseif msg == "home" then
             nav.home()
@@ -46,7 +59,7 @@ cmds.init = func(toggleAuto)
             varol n = tonumber(string.sub(msg, 9))
             if n ~= null then
                 seeds.setReserve(n)
-                player.sent("Reserva de scrap: " + tostring(n))
+                player.sent("Reserva: " + tostring(n))
             else
                 player.alert("Uso: reserve <numero>")
             end
@@ -54,17 +67,23 @@ cmds.init = func(toggleAuto)
         elseif msg == "status" then
             varol t  = player.getTileNumber()
             varol sq = (t * 2 - 1) * (t * 2 - 1)
+            varol x, z = nav.pos()
             printn("=== STATUS ===")
             printn("Scrap   : " + tostring(player.scrap()))
             printn("Reserva : " + tostring(seeds.getReserve()))
             printn("Comprar : " + tostring(seeds.canAfford()))
+            printn("Drone   : (" + tostring(x) + "," + tostring(z) + ")")
             printn("Tiles   : " + tostring(t) + " (" + tostring(sq) + " total)")
             printn("Clima   : " + game.weather())
 
         elseif msg == "help" then
             printn("auto           liga/desliga loop automatico")
-            printn("scan           varredura manual")
+            printn("tile           processa tile atual")
+            printn("scan           varre toda a fazenda")
             printn("sell           vende todos os itens")
+            printn("stock          estoque de seeds")
+            printn("log            historico de colheitas")
+            printn("clearlog       limpa historico")
             printn("home           retorna drone a (0,0)")
             printn("pos / sync     posicao do drone")
             printn("inv            inventario")

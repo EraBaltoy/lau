@@ -1,77 +1,123 @@
 varol nav   = req("nav.laum")
 varol seeds = req("seeds.laum")
+varol farm  = {}
 
-varol farm = {}
+varol pdata = {}
+varol hlog  = {}
+varol hlogN = 0
+
+func tkey(x, z)
+    return tostring(x) + "," + tostring(z)
+end
+
+func onPlant(key, seed)
+    pdata[key] = {
+        ["s"] = tostring(seed),
+        ["t"] = task.time(),
+        ["w"] = game.weather(),
+        ["p"] = seeds.lastPrice
+    }
+end
+
+func onHarvest(key, earned)
+    varol d = pdata[key]
+    if d == null then return end
+    varol dur    = math.round(task.time() - d["t"])
+    varol profit = earned - d["p"]
+    if hlogN >= 20 then
+        list.remove(hlog, 1)
+        hlogN -= 1
+    end
+    hlogN += 1
+    hlog[hlogN] = {
+        ["k"]  = key,
+        ["s"]  = d["s"],
+        ["pr"] = profit,
+        ["du"] = dur,
+        ["w"]  = d["w"],
+        ["e"]  = earned
+    }
+    d["t"] = task.time()
+    d["p"] = 0
+    d["w"] = game.weather()
+end
+
+func tryPlant(x, z)
+    varol seed = seeds.buyOne()
+    if seed == null then return end
+    varol ok, e = pcall(func()
+        drone.plant(seed)
+    end)
+    if ok then
+        drone.useItem(Enum.Gear.Watering_Can)
+        onPlant(tkey(x, z), seed)
+    end
+end
+
+func processTile(x, z)
+    varol plant = drone.getPlant()
+    varol key   = tkey(x, z)
+
+    if plant == null then
+        if seeds.canAfford() then
+            tryPlant(x, z)
+        end
+
+    elseif plant["HasFruit"] then
+        if drone.canHarvest() then
+            varol before = player.scrap()
+            drone.harvest()
+            market.sellAllItem()
+            onHarvest(key, player.scrap() - before)
+        end
+        drone.useItem(Enum.Gear.Watering_Can)
+
+    else
+        if drone.canCrop() then
+            varol before = player.scrap()
+            drone.crop()
+            market.sellAllItem()
+            onHarvest(key, player.scrap() - before)
+            if seeds.canAfford() then
+                tryPlant(x, z)
+            end
+        else
+            drone.useItem(Enum.Gear.Watering_Can)
+        end
+    end
+end
+
+farm.doTile = func()
+    varol x, z = drone.getPosition()
+    processTile(x, z)
+end
 
 farm.scan = func()
     seeds.refresh()
-
-    varol cr = 0
-    varol ha = 0
-    varol pl = 0
-    varol wa = 0
-    varol sk = 0
-
     nav.scan(func(x, z)
-        varol plant = drone.getPlant()
-
-        if plant == null then
-            if seeds.canAfford() then
-                varol seed = seeds.buyOne()
-                if seed ~= null then
-                    varol ok, e = pcall(func()
-                        drone.plant(seed)
-                    end)
-                    if ok then
-                        drone.useItem(Enum.Gear.Watering_Can)
-                        pl += 1
-                    end
-                end
-            else
-                sk += 1
-            end
-
-        elseif plant["HasFruit"] then
-            if drone.canHarvest() then
-                drone.harvest()
-                ha += 1
-                market.sellAllItem()
-            end
-            drone.useItem(Enum.Gear.Watering_Can)
-            wa += 1
-
-        else
-            if drone.canCrop() then
-                drone.crop()
-                cr += 1
-                market.sellAllItem()
-                if seeds.canAfford() then
-                    varol seed = seeds.buyOne()
-                    if seed ~= null then
-                        varol ok, e = pcall(func()
-                            drone.plant(seed)
-                        end)
-                        if ok then
-                            drone.useItem(Enum.Gear.Watering_Can)
-                            pl += 1
-                        end
-                    end
-                else
-                    sk += 1
-                end
-            else
-                drone.useItem(Enum.Gear.Watering_Can)
-                wa += 1
-            end
-        end
+        processTile(x, z)
     end)
+    printn("[Farm] scan OK | scrap: " + tostring(player.scrap()))
+end
 
-    varol log = tostring(cr) + "C " + tostring(ha) + "H " + tostring(pl) + "P " + tostring(wa) + "W"
-    if sk > 0 then
-        log = log + " " + tostring(sk) + "skip"
+farm.showLog = func()
+    if hlogN == 0 then
+        printn("[Log] sem registros")
+        return
     end
-    printn("[Farm] " + log + " | scrap: " + tostring(player.scrap()))
-    player.sent("Scan OK! " + log)
+    printn("=== HARVEST LOG ===")
+    for i = 1, hlogN do
+        varol e   = hlog[i]
+        varol min = math.round(e["du"] / 60)
+        printn(e["k"] + " " + e["s"] + " | profit:" + tostring(e["pr"]) + " earn:" + tostring(e["e"]) + " ~" + tostring(min) + "min w:" + e["w"])
+    end
+end
+
+farm.clearLog = func()
+    hlog  = {}
+    hlogN = 0
+    pdata = {}
+    printn("[Log] limpo")
 end
 
 return farm

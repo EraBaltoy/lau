@@ -18,23 +18,23 @@ end)
 
 market.changedSeedStock:connect(func()
     player.alert("Seeds restocadas!")
-    seeds.markDirty()
+    seeds.refresh()
 end)
 
 cmds.init(func()
     if autoOn then
         autoOn = false
-        player.sent("Auto-farm OFF")
+        player.sent("Auto OFF")
     else
         autoOn = true
-        player.sent("Auto-farm ON")
+        player.sent("Auto ON")
     end
 end)
 
 while true do
     if autoOn then
         varol ok, err = pcall(func()
-            farm.scan()
+            farm.doTile()
         end)
         if NOT ok then
             player.alert("Erro: " + tostring(err))

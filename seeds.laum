@@ -1,8 +1,10 @@
-varol seeds    = {}
-varol scache   = {}
-varol cacheN   = 0
-varol dirty    = false
+varol seeds  = {}
+varol scache = {}
+varol cacheN = 0
+varol dirty  = false
 varol minScrap = 0
+
+seeds.lastPrice = 0
 
 func sortDesc(lst, n)
     for i = 1, n - 1 do
@@ -52,7 +54,6 @@ end
 
 seeds.markDirty = func()
     dirty = true
-    printn("[Seeds] cache expirado")
 end
 
 seeds.setReserve = func(n)
@@ -65,9 +66,7 @@ seeds.getReserve = func()
 end
 
 seeds.canAfford = func()
-    if cacheN == 0 then
-        return false
-    end
+    if cacheN == 0 then return false end
     varol scrap = player.scrap()
     for i = 1, cacheN do
         varol e = scache[i]
@@ -82,20 +81,34 @@ seeds.buyOne = func()
     if dirty OR cacheN == 0 then
         seeds.refresh()
     end
-    if cacheN == 0 then
-        return null
-    end
+    if cacheN == 0 then return null end
     varol scrap = player.scrap()
     for i = 1, cacheN do
         varol e = scache[i]
         if e ~= null AND e["Amount"] > 0 AND scrap - e["Price"] >= minScrap then
             if market.buySeed(e["Seed"]) then
                 scache[i]["Amount"] -= 1
+                seeds.lastPrice = e["Price"]
                 return e["Seed"]
             end
         end
     end
     return null
+end
+
+seeds.stock = func()
+    if cacheN == 0 then
+        printn("[Stock] cache vazio")
+        return
+    end
+    printn("=== SEEDS ===")
+    for i = 1, cacheN do
+        varol e = scache[i]
+        if e ~= null then
+            printn(tostring(i) + ". " + tostring(e["Seed"]) + " $" + tostring(e["Price"]) + " x" + tostring(e["Amount"]))
+        end
+    end
+    printn("Scrap: " + tostring(player.scrap()) + " | Reserva: " + tostring(minScrap))
 end
 
 return seeds
