@@ -15,7 +15,7 @@ cmds.init = func(toggleAuto)
             farm.doTile()
 
         elseif msg == "scan" then
-            player.sent("Iniciando scan...")
+            player.sent("Scan iniciado...")
             varol ok, err = pcall(func()
                 farm.scan()
             end)
@@ -65,27 +65,32 @@ cmds.init = func(toggleAuto)
             end
 
         elseif msg == "status" then
-            varol t  = player.getTileNumber()
-            varol sq = (t * 2 - 1) * (t * 2 - 1)
+            varol t   = player.getTileNumber()
+            varol sq  = (t * 2 - 1) * (t * 2 - 1)
             varol x, z = nav.pos()
+            varol rst  = market.getSeedStockTime()
+            varol lw   = farm.lastWait
             printn("=== STATUS ===")
             printn("Scrap   : " + tostring(player.scrap()))
             printn("Reserva : " + tostring(seeds.getReserve()))
             printn("Comprar : " + tostring(seeds.canAfford()))
+            printn("Restock : " + tostring(rst) + "s")
+            if lw ~= null then
+                printn("Prox    : ~" + tostring(math.round(lw / 60)) + "min")
+            end
             printn("Drone   : (" + tostring(x) + "," + tostring(z) + ")")
             printn("Tiles   : " + tostring(t) + " (" + tostring(sq) + " total)")
             printn("Clima   : " + game.weather())
 
         elseif msg == "help" then
-            printn("auto           liga/desliga loop automatico")
+            printn("auto           liga/desliga loop (scan completo)")
             printn("tile           processa tile atual")
             printn("scan           varre toda a fazenda")
             printn("sell           vende todos os itens")
-            printn("stock          estoque de seeds")
-            printn("log            historico de colheitas")
-            printn("clearlog       limpa historico")
-            printn("home           retorna drone a (0,0)")
-            printn("pos / sync     posicao do drone")
+            printn("stock          estoque + tempo medio de crescimento")
+            printn("log            historico: profit/duracao/weather")
+            printn("clearlog       limpa historico e rastreamento")
+            printn("home/pos/sync  navegacao do drone")
             printn("inv            inventario")
             printn("reserve <n>    reserva minima de scrap")
             printn("status         estado completo")

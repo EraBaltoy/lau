@@ -1,8 +1,9 @@
-varol seeds  = {}
-varol scache = {}
-varol cacheN = 0
-varol dirty  = false
+varol seeds    = {}
+varol scache   = {}
+varol cacheN   = 0
+varol dirty    = false
 varol minScrap = 0
+varol dtrack   = {}
 
 seeds.lastPrice = 0
 
@@ -44,12 +45,10 @@ seeds.refresh = func()
             end
         end
     end
-    if n > 1 then
-        sortDesc(tmp, n)
-    end
+    if n > 1 then sortDesc(tmp, n) end
     scache = tmp
     cacheN = n
-    printn("[Seeds] " + tostring(n) + " seeds | reserva: " + tostring(minScrap))
+    printn("[Seeds] " + tostring(n) + " | reserva:" + tostring(minScrap))
 end
 
 seeds.markDirty = func()
@@ -66,9 +65,7 @@ seeds.getReserve = func()
 end
 
 seeds.canAfford = func()
-    if dirty OR cacheN == 0 then
-        seeds.refresh()
-    end
+    if dirty OR cacheN == 0 then seeds.refresh() end
     if cacheN == 0 then return false end
     varol scrap = player.scrap()
     for i = 1, cacheN do
@@ -81,9 +78,7 @@ seeds.canAfford = func()
 end
 
 seeds.buyOne = func()
-    if dirty OR cacheN == 0 then
-        seeds.refresh()
-    end
+    if dirty OR cacheN == 0 then seeds.refresh() end
     if cacheN == 0 then return null end
     varol scrap = player.scrap()
     for i = 1, cacheN do
@@ -99,19 +94,43 @@ seeds.buyOne = func()
     return null
 end
 
+seeds.trackDuration = func(seedStr, secs)
+    if secs <= 0 then return end
+    if dtrack[seedStr] == null then
+        dtrack[seedStr] = {["t"] = secs, ["n"] = 1}
+    else
+        dtrack[seedStr]["t"] += secs
+        dtrack[seedStr]["n"] += 1
+    end
+end
+
+seeds.estimateWait = func(seedStr, pct)
+    varol d = dtrack[seedStr]
+    if d == null OR d["n"] == 0 then return null end
+    varol avg = d["t"] / d["n"]
+    return math.round(avg * (100 - pct) / 100)
+end
+
 seeds.stock = func()
     if cacheN == 0 then
         printn("[Stock] cache vazio")
         return
     end
     printn("=== SEEDS ===")
+    varol rst = market.getSeedStockTime()
     for i = 1, cacheN do
         varol e = scache[i]
         if e ~= null then
-            printn(tostring(i) + ". " + tostring(e["Seed"]) + " $" + tostring(e["Price"]) + " x" + tostring(e["Amount"]))
+            varol line = tostring(i) + ". " + tostring(e["Seed"]) + " $" + tostring(e["Price"]) + " x" + tostring(e["Amount"])
+            varol d = dtrack[tostring(e["Seed"])]
+            if d ~= null AND d["n"] > 0 then
+                varol avg = math.round(d["t"] / d["n"] / 60)
+                line = line + " ~" + tostring(avg) + "min"
+            end
+            printn(line)
         end
     end
-    printn("Scrap: " + tostring(player.scrap()) + " | Reserva: " + tostring(minScrap))
+    printn("Scrap:" + tostring(player.scrap()) + " Reserva:" + tostring(minScrap) + " Restock:" + tostring(rst) + "s")
 end
 
 return seeds

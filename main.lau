@@ -4,6 +4,8 @@ varol seeds = req("seeds.laum")
 varol cmds  = req("cmds.laum")
 
 varol autoOn = false
+varol WMIN   = 60
+varol WMAX   = 300
 
 clearn()
 printn("=== FARMBOT ===")
@@ -21,14 +23,19 @@ market.changedSeedStock:connect(func()
     seeds.refresh()
 end)
 
-func runTile()
+func runScan()
     varol ok, err = pcall(func()
-        farm.doTile()
+        farm.scan()
     end)
     if NOT ok then
         player.alert("Erro: " + tostring(err))
         autoOn = false
+        return WMIN
     end
+    varol w = farm.lastWait
+    if w == null OR w < WMIN then return WMIN end
+    if w > WMAX then return WMAX end
+    return w
 end
 
 cmds.init(func()
@@ -38,13 +45,15 @@ cmds.init(func()
     else
         autoOn = true
         player.sent("Auto ON")
-        runTile()
     end
 end)
 
 while true do
-    task.wait(30)
     if autoOn then
-        runTile()
+        varol wait = runScan()
+        printn("[Auto] aguardando " + tostring(wait) + "s")
+        task.wait(wait)
+    else
+        task.wait(2)
     end
 end

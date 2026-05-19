@@ -5,9 +5,27 @@ varol farm  = {}
 varol pdata = {}
 varol hlog  = {}
 varol hlogN = 0
+varol sCr   = 0
+varol sHa   = 0
+varol sPl   = 0
+varol sSk   = 0
+varol swMin = null
+
+farm.lastWait = null
 
 func tkey(x, z)
     return tostring(x) + "," + tostring(z)
+end
+
+func water()
+    pcall(func()
+        drone.useItem(Enum.Gear.Watering_Can)
+    end)
+end
+
+func setMinWait(w)
+    if w == null then return end
+    if swMin == null OR w < swMin then swMin = w end
 end
 
 func onPlant(key, seed)
@@ -24,6 +42,7 @@ func onHarvest(key, earned)
     if d == null then return end
     varol dur    = math.round(task.time() - d["t"])
     varol profit = earned - d["p"]
+    seeds.trackDuration(d["s"], dur)
     if hlogN >= 20 then
         list.remove(hlog, 1)
         hlogN -= 1
@@ -49,7 +68,8 @@ func tryPlant(x, z)
         drone.plant(seed)
     end)
     if ok then
-        drone.useItem(Enum.Gear.Watering_Can)
+        water()
+        sPl += 1
         onPlant(tkey(x, z), seed)
     end
 end
@@ -61,54 +81,90 @@ func processTile(x, z)
     if plant == null then
         if seeds.canAfford() then
             tryPlant(x, z)
+        else
+            sSk += 1
         end
 
     elseif plant["HasFruit"] then
         if drone.canHarvest() then
+            if player.getFruitCount() >= player.getFruitCapacity() then
+                market.sellAllItem()
+            end
             varol before = player.scrap()
             drone.harvest()
             market.sellAllItem()
+            sHa += 1
             onHarvest(key, player.scrap() - before)
         end
-        drone.useItem(Enum.Gear.Watering_Can)
+        water()
+        varol fp = drone.getFruitPercent()
+        if fp ~= null then
+            varol d = pdata[key]
+            if d ~= null then
+                setMinWait(seeds.estimateWait(d["s"], fp))
+            end
+        end
 
     else
         if drone.canCrop() then
             varol before = player.scrap()
             drone.crop()
             market.sellAllItem()
+            sCr += 1
             onHarvest(key, player.scrap() - before)
             if seeds.canAfford() then
                 tryPlant(x, z)
+            else
+                sSk += 1
             end
         else
-            drone.useItem(Enum.Gear.Watering_Can)
+            water()
+            varol pp = drone.getPlantPercent()
+            if pp ~= null then
+                varol d = pdata[key]
+                if d ~= null then
+                    setMinWait(seeds.estimateWait(d["s"], pp))
+                end
+            end
         end
     end
 end
 
 farm.doTile = func()
     varol x, z = drone.getPosition()
-    varol plant = drone.getPlant()
-    varol state = "vazio"
-    if plant ~= null then
-        varol pct = tostring(math.round(drone.getPlantPercent()))
-        if plant["HasFruit"] then
-            state = "fruta " + pct + "%"
-        else
-            state = "crop " + pct + "%"
-        end
-    end
-    printn("[Tile] (" + tostring(x) + "," + tostring(z) + ") " + state + " | scrap:" + tostring(player.scrap()))
+    printn("[Tile] (" + tostring(x) + "," + tostring(z) + ") scrap:" + tostring(player.scrap()))
+    sCr = 0
+    sHa = 0
+    sPl = 0
+    sSk = 0
+    swMin = null
     processTile(x, z)
+    farm.lastWait = swMin
+    if swMin ~= null then
+        printn("[Tile] prox ~" + tostring(math.round(swMin / 60)) + "min")
+    end
 end
 
 farm.scan = func()
     seeds.refresh()
+    sCr   = 0
+    sHa   = 0
+    sPl   = 0
+    sSk   = 0
+    swMin = null
+    varol before = player.scrap()
     nav.scan(func(x, z)
         processTile(x, z)
     end)
-    printn("[Farm] scan OK | scrap: " + tostring(player.scrap()))
+    varol profit = player.scrap() - before
+    varol sign   = "+"
+    if profit < 0 then sign = "" end
+    varol lg = tostring(sCr) + "C " + tostring(sHa) + "H " + tostring(sPl) + "P"
+    if sSk > 0 then lg = lg + " " + tostring(sSk) + "sk" end
+    lg = lg + " | " + sign + tostring(profit)
+    printn("[Scan] " + lg)
+    player.sent(lg)
+    farm.lastWait = swMin
 end
 
 farm.showLog = func()
@@ -120,7 +176,7 @@ farm.showLog = func()
     for i = 1, hlogN do
         varol e   = hlog[i]
         varol min = math.round(e["du"] / 60)
-        printn(e["k"] + " " + e["s"] + " | profit:" + tostring(e["pr"]) + " earn:" + tostring(e["e"]) + " ~" + tostring(min) + "min w:" + e["w"])
+        printn(e["k"] + " " + e["s"] + " pr:" + tostring(e["pr"]) + " e:" + tostring(e["e"]) + " ~" + tostring(min) + "min " + e["w"])
     end
 end
 
