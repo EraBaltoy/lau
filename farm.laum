@@ -89,6 +89,17 @@ end
 
 farm.doTile = func()
     varol x, z = drone.getPosition()
+    varol plant = drone.getPlant()
+    varol state = "vazio"
+    if plant ~= null then
+        varol pct = tostring(math.round(drone.getPlantPercent()))
+        if plant["HasFruit"] then
+            state = "fruta " + pct + "%"
+        else
+            state = "crop " + pct + "%"
+        end
+    end
+    printn("[Tile] (" + tostring(x) + "," + tostring(z) + ") " + state + " | scrap:" + tostring(player.scrap()))
     processTile(x, z)
 end
 

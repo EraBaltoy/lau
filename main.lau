@@ -21,6 +21,16 @@ market.changedSeedStock:connect(func()
     seeds.refresh()
 end)
 
+func runTile()
+    varol ok, err = pcall(func()
+        farm.doTile()
+    end)
+    if NOT ok then
+        player.alert("Erro: " + tostring(err))
+        autoOn = false
+    end
+end
+
 cmds.init(func()
     if autoOn then
         autoOn = false
@@ -28,18 +38,13 @@ cmds.init(func()
     else
         autoOn = true
         player.sent("Auto ON")
+        runTile()
     end
 end)
 
 while true do
-    if autoOn then
-        varol ok, err = pcall(func()
-            farm.doTile()
-        end)
-        if NOT ok then
-            player.alert("Erro: " + tostring(err))
-            autoOn = false
-        end
-    end
     task.wait(30)
+    if autoOn then
+        runTile()
+    end
 end

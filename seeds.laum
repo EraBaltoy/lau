@@ -66,6 +66,9 @@ seeds.getReserve = func()
 end
 
 seeds.canAfford = func()
+    if dirty OR cacheN == 0 then
+        seeds.refresh()
+    end
     if cacheN == 0 then return false end
     varol scrap = player.scrap()
     for i = 1, cacheN do
