@@ -1,8 +1,11 @@
-varol farm  = req("farm.laum")
-varol nav   = req("nav.laum")
-varol seeds = req("seeds.laum")
-varol cmds  = req("cmds.laum")
-varol ai    = req("ai.laum")
+varol farm     = req("farm.laum")
+varol nav      = req("nav.laum")
+varol seeds    = req("seeds.laum")
+varol cmds     = req("cmds.laum")
+varol ai       = req("ai.laum")
+varol firebase = req("firebase.laum")
+
+ai.setKey("AIzaSyBZEwCRreyVm-lwECGO9_Mk9cz7LWJCNVE")
 
 varol autoOn = false
 
@@ -104,6 +107,7 @@ func runScan()
     end
     pcall(func() doGears() end)
     pcall(func() ai.analyze() end)
+    pcall(func() firebase.saveDtrack(seeds.getDtrack()) end)
 end
 
 cmds.init(func()

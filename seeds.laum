@@ -1,3 +1,4 @@
+varol firebase = req("firebase.laum")
 varol seeds    = {}
 varol scache   = {}
 varol cacheN   = 0
@@ -5,10 +6,9 @@ varol dirty    = false
 varol minScrap = 0
 varol dtrack   = {}
 
-varol _sd = data.load(1)
+varol _sd = firebase.loadDtrack()
 if _sd ~= null then
     dtrack = _sd
-    printn("[Seeds] historico carregado")
 end
 
 seeds.lastPrice = 0
@@ -92,7 +92,7 @@ seeds.track = func(seedStr, secs, profit)
         dtrack[seedStr]["p"] += profit
         dtrack[seedStr]["n"] += 1
     end
-    pcall(func() data.save(1, dtrack) end)
+
 end
 
 seeds.profitPerMin = func(seedStr)
