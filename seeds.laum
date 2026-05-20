@@ -94,12 +94,6 @@ seeds.profitPerMin = func(seedStr)
     return math.round(d["p"] * 60 / d["t"])
 end
 
-seeds.avgDuration = func(seedStr)
-    varol d = dtrack[seedStr]
-    if d == null OR d["n"] == 0 then return null end
-    return math.round(d["t"] / d["n"])
-end
-
 seeds.buyOne = func()
     if dirty OR cacheN == 0 then seeds.refresh() end
     if cacheN == 0 then return null end

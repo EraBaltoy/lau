@@ -17,8 +17,8 @@ func tkey(x, z)
     return tostring(x) + "," + tostring(z)
 end
 
-func water(x, z)
-    if NOT nav.isCovered(x, z) then
+func water()
+    if droneV2.getMachineWater() == 0 then
         pcall(func()
             drone.useItem(Enum.Gear.Watering_Can)
         end)
@@ -95,7 +95,7 @@ func processTile(x, z)
 
     elseif fruit ~= null then
         if drone.canHarvest() then
-            if player.getFruitCount() >= player.getFruitCapacity() then
+            if (player.getFruitCount() OR 0) >= player.getFruitCapacity() then
                 market.sellAllItem()
             end
             varol before = player.scrap()
@@ -104,13 +104,10 @@ func processTile(x, z)
             sHa += 1
             onHarvest(key, player.scrap() - before)
         end
-        water(x, z)
-        varol d = pdata[key]
-        if d ~= null then
-            varol avg = seeds.avgDuration(d["s"])
-            if avg ~= null then
-                setMinWait(d["t"] + avg - task.time())
-            end
+        water()
+        varol dur = droneV2.getGearDuration()
+        if dur ~= null AND dur > 0 then
+            setMinWait(dur)
         end
 
     else
@@ -126,13 +123,10 @@ func processTile(x, z)
                 sSk += 1
             end
         else
-            water(x, z)
-            varol d = pdata[key]
-            if d ~= null then
-                varol avg = seeds.avgDuration(d["s"])
-                if avg ~= null then
-                    setMinWait(d["t"] + avg - task.time())
-                end
+            water()
+            varol dur = droneV2.getGearDuration()
+            if dur ~= null AND dur > 0 then
+                setMinWait(dur)
             end
         end
     end

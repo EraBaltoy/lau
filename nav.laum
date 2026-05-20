@@ -133,7 +133,7 @@ func _ct(x, z)
         if pl ~= null then
             varol fruit = drone.getFruit()
             if fruit ~= null AND drone.canHarvest() then
-                if player.getFruitCount() >= player.getFruitCapacity() then
+                if (player.getFruitCount() OR 0) >= player.getFruitCapacity() then
                     market.sellAllItem()
                 end
                 drone.harvest()
