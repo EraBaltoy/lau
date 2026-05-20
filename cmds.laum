@@ -71,7 +71,8 @@ cmds.init = func(toggleAuto)
             player.sent("Home!")
 
         elseif msg == "pos" then
-            varol x, z = nav.pos()
+            varol x = nav.posX()
+            varol z = nav.posZ()
             player.sent("(" + tostring(x) + "," + tostring(z) + ")")
 
         elseif msg == "sync" then
@@ -96,7 +97,8 @@ cmds.init = func(toggleAuto)
         elseif msg == "status" then
             varol t   = player.getTileNumber()
             varol sq  = (t * 2 - 1) * (t * 2 - 1)
-            varol x, z = nav.pos()
+            varol x = nav.posX()
+            varol z = nav.posZ()
             varol rst  = market.getSeedStockTime()
             varol lw   = farm.lastWait
             printn("=== STATUS ===")

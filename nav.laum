@@ -8,7 +8,9 @@ nav.gcacheN = 0
 nav.gplan   = {}
 nav.gplanN  = 0
 
-nav.pos = func() return nx, nz end
+nav.pos  = func() return nx, nz end
+nav.posX = func() return nx end
+nav.posZ = func() return nz end
 
 nav.sync = func()
     nx = drone.getPositionX()
@@ -48,17 +50,37 @@ nav.clearGears = func()
     printn("[Nav] gears limpo")
 end
 
+nav.isCovered = func(x, z)
+    varol now = task.time()
+    for i = 1, nav.gplanN do
+        varol p = nav.gplan[i]
+        if p ~= null AND now < p["exp"] then
+            varol rng = nav.gRange(p["g"])
+            if math.abs(x - p["x"]) <= rng AND math.abs(z - p["z"]) <= rng then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 nav.gDur = func(g)
     varol s = tostring(g)
-    if string.find(s, "V3") then return 20
-    elseif string.find(s, "V2") then return 15 end
+    if string.find(s, "V3") then
+        return 20
+    elseif string.find(s, "V2") then
+        return 15
+    end
     return 10
 end
 
 nav.gRange = func(g)
     varol s = tostring(g)
-    if string.find(s, "V3") then return 4
-    elseif string.find(s, "V2") then return 2 end
+    if string.find(s, "V3") then
+        return 4
+    elseif string.find(s, "V2") then
+        return 2
+    end
     return 1
 end
 
@@ -73,8 +95,11 @@ nav.autoPlan = func()
         if e ~= null then
             varol s = tostring(e["Gear"])
             varol p = 1
-            if string.find(s, "V3") then p = 3
-            elseif string.find(s, "V2") then p = 2 end
+            if string.find(s, "V3") then
+                p = 3
+            elseif string.find(s, "V2") then
+                p = 2
+            end
             if p > bestP then
                 bestP = p
                 bestG = e["Gear"]
@@ -107,12 +132,13 @@ func _ct(x, z)
         varol pl = drone.getPlant()
         if pl ~= null then
             if pl["HasFruit"] AND drone.canHarvest() then
+                if player.getFruitCount() >= player.getFruitCapacity() then
+                    market.sellAllItem()
+                end
                 drone.harvest()
-                market.sellAllItem()
                 _col += 1
             elseif NOT pl["HasFruit"] AND drone.canCrop() then
                 drone.crop()
-                market.sellAllItem()
                 _col += 1
             end
         end
@@ -133,12 +159,14 @@ nav.collect = func()
         end
         if east then east = false else east = true end
     end
+    market.sellAllItem()
     nav.home()
     printn("[Col] " + tostring(_col) + " coletados")
     return _col
 end
 
 nav.scan = func(cb)
+    nav.sync()
     varol r    = player.getTileNumber() - 1
     varol min  = 0 - r
     varol max  = r
@@ -150,13 +178,17 @@ nav.scan = func(cb)
         printn("[Scan] " + tostring(row) + "/" + tostring(rows) + " z=" + tostring(z))
         if east then
             for x = min, max do
-                nav.to(x, z)
-                cb(x, z)
+                if NOT nav.isGear(x, z) then
+                    nav.to(x, z)
+                    cb(x, z)
+                end
             end
         else
             for x = max, min, -1 do
-                nav.to(x, z)
-                cb(x, z)
+                if NOT nav.isGear(x, z) then
+                    nav.to(x, z)
+                    cb(x, z)
+                end
             end
         end
         if east then east = false else east = true end

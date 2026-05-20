@@ -17,10 +17,12 @@ func tkey(x, z)
     return tostring(x) + "," + tostring(z)
 end
 
-func water()
-    pcall(func()
-        drone.useItem(Enum.Gear.Watering_Can)
-    end)
+func water(x, z)
+    if NOT nav.isCovered(x, z) then
+        pcall(func()
+            drone.useItem(Enum.Gear.Watering_Can)
+        end)
+    end
 end
 
 func setMinWait(w)
@@ -68,7 +70,7 @@ func tryPlant(x, z)
         drone.plant(seed)
     end)
     if ok then
-        water()
+        water(x, z)
         sPl += 1
         onPlant(tkey(x, z), seed)
     else
@@ -101,7 +103,7 @@ func processTile(x, z)
             sHa += 1
             onHarvest(key, player.scrap() - before)
         end
-        water()
+        water(x, z)
         varol fp = drone.getFruitPercent()
         if fp ~= null then
             varol d = pdata[key]
@@ -123,7 +125,7 @@ func processTile(x, z)
                 sSk += 1
             end
         else
-            water()
+            water(x, z)
             varol pp = drone.getPlantPercent()
             if pp ~= null then
                 varol d = pdata[key]
@@ -136,7 +138,8 @@ func processTile(x, z)
 end
 
 farm.doTile = func()
-    varol x, z = drone.getPosition()
+    varol x = drone.getPositionX()
+    varol z = drone.getPositionZ()
     printn("[Tile] (" + tostring(x) + "," + tostring(z) + ") scrap:" + tostring(player.scrap()))
     sCr = 0
     sHa = 0
@@ -151,7 +154,6 @@ farm.doTile = func()
 end
 
 farm.scan = func()
-    seeds.refresh()
     sCr   = 0
     sHa   = 0
     sPl   = 0
