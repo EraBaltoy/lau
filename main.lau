@@ -70,7 +70,7 @@ func refreshGears()
     for i, e inpairs(raw) do
         varol g = e["Gear"]
         varol s = e["Stock"]
-        if g ~= null AND s ~= null AND s > 0 then
+        if g ~= null AND s ~= null AND s > 0 AND NOT string.find(tostring(g), "Water") then
             varol p = market.getGearPrice(g)
             if p ~= null AND p > 0 then
                 n += 1

@@ -127,21 +127,19 @@ end
 varol _col = 0
 
 func _ct(x, z)
-    if NOT nav.isGear(x, z) then
-        nav.to(x, z)
-        varol pl = drone.getPlant()
-        if pl ~= null then
-            varol fruit = drone.getFruit()
-            if fruit ~= null AND drone.canHarvest() then
-                if (player.getFruitCount() OR 0) >= player.getFruitCapacity() then
-                    market.sellAllItem()
-                end
-                drone.harvest()
-                _col += 1
-            elseif fruit == null AND drone.canCrop() then
-                drone.crop()
-                _col += 1
+    nav.to(x, z)
+    varol pl = drone.getPlant()
+    if pl ~= null then
+        varol fruit = drone.getFruit()
+        if fruit ~= null AND drone.canHarvest() then
+            if (player.getFruitCount() OR 0) >= player.getFruitCapacity() then
+                market.sellAllItem()
             end
+            drone.harvest()
+            _col += 1
+        elseif fruit == null AND drone.canCrop() then
+            drone.crop()
+            _col += 1
         end
     end
 end
@@ -179,17 +177,13 @@ nav.scan = func(cb)
         printn("[Scan] " + tostring(row) + "/" + tostring(rows) + " z=" + tostring(z))
         if east then
             for x = min, max do
-                if NOT nav.isGear(x, z) then
-                    nav.to(x, z)
-                    cb(x, z)
-                end
+                nav.to(x, z)
+                cb(x, z)
             end
         else
             for x = max, min, -1 do
-                if NOT nav.isGear(x, z) then
-                    nav.to(x, z)
-                    cb(x, z)
-                end
+                nav.to(x, z)
+                cb(x, z)
             end
         end
         if east then east = false else east = true end
