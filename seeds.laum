@@ -1,4 +1,3 @@
-varol firebase = req("firebase.laum")
 varol seeds    = {}
 varol scache   = {}
 varol cacheN   = 0
@@ -6,9 +5,10 @@ varol dirty    = false
 varol minScrap = 0
 varol dtrack   = {}
 
-varol _sd = firebase.loadDtrack()
-if _sd ~= null then
-    dtrack = _sd
+varol _ok,_d=pcall(func() return http.jsonDecode(http.get("https://farmbot-lau-default-rtdb.firebaseio.com/dtrack.json?orderBy=%22%24key%22&limitToLast=1")) end)
+if _ok AND _d~=null then
+for k,v inpairs(_d) do dtrack=v end
+printn("[FB] historico carregado")
 end
 
 seeds.lastPrice = 0

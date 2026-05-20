@@ -1,13 +1,12 @@
-varol farm     = req("farm.laum")
-varol nav      = req("nav.laum")
-varol seeds    = req("seeds.laum")
-varol cmds     = req("cmds.laum")
-varol ai       = req("ai.laum")
-varol firebase = req("firebase.laum")
+varol farm  = req("farm.laum")
+varol nav   = req("nav.laum")
+varol seeds = req("seeds.laum")
+varol cmds  = req("cmds.laum")
 
-ai.setKey("AIzaSyBZEwCRreyVm-lwECGO9_Mk9cz7LWJCNVE")
-
+varol FB     = "https://farmbot-lau-default-rtdb.firebaseio.com"
 varol autoOn = false
+varol fbLast = 0
+varol aiLast = 0
 
 clearn()
 printn("=== FARMBOT ===")
@@ -15,6 +14,51 @@ printn("Scrap : " + tostring(player.scrap()))
 printn("Tiles : " + tostring(player.getTileNumber()))
 printn("Clima : " + game.weather())
 printn("help  → comandos")
+
+func fbSave()
+    varol now = task.time()
+    if now - fbLast < 300 then return end
+    fbLast = now
+    task.spawn(func()
+        varol ok, body = pcall(func() return http.jsonEncode(seeds.getDtrack()) end)
+        if ok then
+            pcall(func() http.post(FB + "/dtrack.json", body) end)
+        end
+    end)
+end
+
+func aiRun()
+    varol now = task.time()
+    if now - aiLast < 180 then return end
+    aiLast = now
+    varol dt = seeds.getDtrack()
+    varol sc = seeds.getCache()
+    varol cn = seeds.getCacheN()
+    varol best = null
+    varol bPpm = 0
+    varol newN = 0
+    for i = 1, cn do
+        varol e = sc[i]
+        if e == null OR e["Stock"] <= 0 then continue end
+        varol d = dt[tostring(e["Seed"])]
+        if d == null OR d["n"] < 3 then
+            newN += 1
+        else
+            varol ppm = math.round(d["p"] * 60 / d["t"])
+            if ppm > bPpm then
+                bPpm = ppm
+                best = tostring(e["Seed"])
+            end
+        end
+    end
+    varol m = "[AI]"
+    if best ~= null then m = m + " " + best + " " + tostring(bPpm) + "/min" end
+    if newN > 0 then m = m + " +" + tostring(newN) + "novas" end
+    printn(m)
+    if best ~= null then
+        pcall(func() farm.gemini("w:" + game.weather() + " best:" + best + " " + tostring(bPpm) + "/min. Better?") end)
+    end
+end
 
 func refreshGears()
     nav.gcache  = {}
@@ -70,9 +114,7 @@ func doGears()
                         if droneV2.hasGear() then
                             nav.gplan[i]["exp"] = now + p["d"] * 60
                             nav.markGear(p["x"], p["z"])
-                            printn("[Gear] (" + tostring(p["x"]) + "," + tostring(p["z"]) + ")")
-                        else
-                            printn("[Gear] FALHOU em (" + tostring(p["x"]) + "," + tostring(p["z"]) + ")")
+                            printn("[Gear] " + tostring(p["x"]) + "," + tostring(p["z"]))
                         end
                     end
                 end
@@ -101,13 +143,12 @@ func runScan()
         farm.scan()
     end)
     if NOT ok then
-        printn("[Scan] Erro: " + tostring(err))
-        player.alert("[Scan] " + tostring(err))
+        player.alert("Err:" + tostring(err))
         task.wait(2)
     end
     pcall(func() doGears() end)
-    pcall(func() ai.analyze() end)
-    pcall(func() firebase.saveDtrack(seeds.getDtrack()) end)
+    pcall(func() aiRun() end)
+    pcall(func() fbSave() end)
 end
 
 cmds.init(func()

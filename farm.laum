@@ -167,4 +167,20 @@ farm.clearLog = func()
     printn("[Log] limpo")
 end
 
+varol GURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=AIzaSyBZEwCRreyVm-lwECGO9_Mk9cz7LWJCNVE"
+
+farm.gemini = func(prompt)
+    if string.len(prompt) == 0 then return end
+    task.spawn(func()
+        varol ok, r = pcall(func()
+            return http.post(GURL, http.jsonEncode({["contents"]={{["parts"]={{["text"]=prompt}}}}}))
+        end)
+        if NOT ok OR r == null then return end
+        varol ok2, t = pcall(func()
+            return http.jsonDecode(r)["candidates"][1]["content"]["parts"][1]["text"]
+        end)
+        if ok2 AND t ~= null then printn("[Gemini] " + t) end
+    end)
+end
+
 return farm
