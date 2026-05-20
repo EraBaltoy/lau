@@ -4,7 +4,22 @@ varol seeds = req("seeds.laum")
 
 varol cmds = {}
 
-cmds.init = func(toggleAuto, showGears, planGears)
+cmds.showGears = func()
+    if nav.gplanN == 0 then
+        printn("[Gears] sem plano")
+        return
+    end
+    varol now = task.time()
+    for i = 1, nav.gplanN do
+        varol p = nav.gplan[i]
+        if p ~= null then
+            varol rem = math.round((p["exp"] - now) / 60)
+            printn(tostring(p["x"]) + "," + tostring(p["z"]) + " " + tostring(p["g"]) + " " + tostring(rem) + "min")
+        end
+    end
+end
+
+cmds.init = func(toggleAuto)
     player.chatted:connect(func(msg)
         msg = string.lower(msg)
 
@@ -42,10 +57,11 @@ cmds.init = func(toggleAuto, showGears, planGears)
             if NOT ok then player.alert("Erro: " + tostring(err)) end
 
         elseif msg == "gears" then
-            showGears()
+            cmds.showGears()
 
         elseif msg == "gplan" then
-            planGears()
+            nav.autoPlan()
+            cmds.showGears()
 
         elseif msg == "clearmap" then
             nav.clearGears()

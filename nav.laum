@@ -1,22 +1,36 @@
-varol nav    = {}
-varol nx     = drone.getPositionX()
-varol nz     = drone.getPositionZ()
-varol gTiles = {}
+varol nav     = {}
+varol nx      = drone.getPositionX()
+varol nz      = drone.getPositionZ()
+varol gTiles  = {}
 
-nav.pos  = func() return nx, nz end
+nav.gcache  = {}
+nav.gcacheN = 0
+nav.gplan   = {}
+nav.gplanN  = 0
+
+nav.pos = func() return nx, nz end
 
 nav.sync = func()
-    nx = drone.getPositionX(); nz = drone.getPositionZ()
+    nx = drone.getPositionX()
+    nz = drone.getPositionZ()
     printn("[Nav] (" + tostring(nx) + "," + tostring(nz) + ")")
 end
 
 nav.to = func(tx, tz)
-    varol dx = tx - nx; varol dz = tz - nz
-    if dx > 0 then for i=1,dx do drone.move(Enum.Direction.East) end
-    elseif dx < 0 then for i=1,-dx do drone.move(Enum.Direction.West) end end
-    if dz > 0 then for i=1,dz do drone.move(Enum.Direction.South) end
-    elseif dz < 0 then for i=1,-dz do drone.move(Enum.Direction.North) end end
-    nx = tx; nz = tz
+    varol dx = tx - nx
+    varol dz = tz - nz
+    if dx > 0 then
+        for i = 1, dx do drone.move(Enum.Direction.East) end
+    elseif dx < 0 then
+        for i = 1, -dx do drone.move(Enum.Direction.West) end
+    end
+    if dz > 0 then
+        for i = 1, dz do drone.move(Enum.Direction.South) end
+    elseif dz < 0 then
+        for i = 1, -dz do drone.move(Enum.Direction.North) end
+    end
+    nx = tx
+    nz = tz
 end
 
 nav.home = func() nav.to(0, 0) end
@@ -24,31 +38,92 @@ nav.home = func() nav.to(0, 0) end
 nav.isGear = func(x, z)
     return gTiles[tostring(x) + "," + tostring(z)] == true
 end
+
 nav.markGear = func(x, z)
     gTiles[tostring(x) + "," + tostring(z)] = true
 end
+
 nav.clearGears = func()
-    gTiles = {}; printn("[Nav] gears limpo")
+    gTiles = {}
+    printn("[Nav] gears limpo")
+end
+
+nav.gDur = func(g)
+    varol s = tostring(g)
+    if string.find(s, "V3") then return 20
+    elseif string.find(s, "V2") then return 15 end
+    return 10
+end
+
+nav.gRange = func(g)
+    varol s = tostring(g)
+    if string.find(s, "V3") then return 4
+    elseif string.find(s, "V2") then return 2 end
+    return 1
+end
+
+nav.autoPlan = func()
+    nav.gplan  = {}
+    nav.gplanN = 0
+    if nav.gcacheN == 0 then return end
+    varol bestG = null
+    varol bestP = 0
+    for i = 1, nav.gcacheN do
+        varol e = nav.gcache[i]
+        if e ~= null then
+            varol s = tostring(e["Gear"])
+            varol p = 1
+            if string.find(s, "V3") then p = 3
+            elseif string.find(s, "V2") then p = 2 end
+            if p > bestP then
+                bestP = p
+                bestG = e["Gear"]
+            end
+        end
+    end
+    if bestG == null then return end
+    varol dur  = nav.gDur(bestG)
+    varol rng  = nav.gRange(bestG)
+    varol step = rng * 2
+    varol r    = player.getTileNumber() - 1
+    varol xp   = 0 - r + rng
+    while xp <= r - rng do
+        varol zp = 0 - r + rng
+        while zp <= r - rng do
+            nav.gplanN += 1
+            nav.gplan[nav.gplanN] = {["x"]=xp,["z"]=zp,["g"]=bestG,["d"]=dur,["exp"]=0}
+            zp += step
+        end
+        xp += step
+    end
+    printn("[Gears] plano: " + tostring(nav.gplanN) + " posicoes")
 end
 
 varol _col = 0
+
 func _ct(x, z)
     if NOT nav.isGear(x, z) then
         nav.to(x, z)
         varol pl = drone.getPlant()
         if pl ~= null then
             if pl["HasFruit"] AND drone.canHarvest() then
-                drone.harvest(); market.sellAllItem(); _col += 1
+                drone.harvest()
+                market.sellAllItem()
+                _col += 1
             elseif NOT pl["HasFruit"] AND drone.canCrop() then
-                drone.crop(); market.sellAllItem(); _col += 1
+                drone.crop()
+                market.sellAllItem()
+                _col += 1
             end
         end
     end
 end
 
 nav.collect = func()
-    varol r = player.getTileNumber() - 1
-    varol min = 0 - r; varol max = r; varol east = true
+    varol r    = player.getTileNumber() - 1
+    varol min  = 0 - r
+    varol max  = r
+    varol east = true
     _col = 0
     for z = min, max do
         if east then
@@ -64,16 +139,25 @@ nav.collect = func()
 end
 
 nav.scan = func(cb)
-    varol r = player.getTileNumber() - 1
-    varol min = 0 - r; varol max = r
-    varol east = true; varol rows = max - min + 1; varol row = 0
+    varol r    = player.getTileNumber() - 1
+    varol min  = 0 - r
+    varol max  = r
+    varol east = true
+    varol rows = max - min + 1
+    varol row  = 0
     for z = min, max do
         row += 1
         printn("[Scan] " + tostring(row) + "/" + tostring(rows) + " z=" + tostring(z))
         if east then
-            for x = min, max do nav.to(x, z); cb(x, z) end
+            for x = min, max do
+                nav.to(x, z)
+                cb(x, z)
+            end
         else
-            for x = max, min, -1 do nav.to(x, z); cb(x, z) end
+            for x = max, min, -1 do
+                nav.to(x, z)
+                cb(x, z)
+            end
         end
         if east then east = false else east = true end
     end
