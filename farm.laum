@@ -10,6 +10,7 @@ varol sHa       = 0
 varol sPl       = 0
 varol sSk       = 0
 varol swMin     = null
+varol DEF_WAIT  = 300
 
 farm.lastWait = null
 
@@ -41,7 +42,11 @@ func calcWait(key)
         varol avg = seeds.avgDuration(d["s"])
         if avg ~= null then
             setMinWait(d["t"] + avg - task.time())
+        else
+            setMinWait(DEF_WAIT)
         end
+    else
+        setMinWait(DEF_WAIT)
     end
 end
 
@@ -89,7 +94,7 @@ func tryPlant(x, z)
         sPl += 1
         onPlant(tkey(x, z), seed)
         varol avg = seeds.avgDuration(tostring(seed))
-        if avg ~= null then setMinWait(avg) end
+        setMinWait(avg OR DEF_WAIT)
     else
         nav.markGear(x, z)
         printn("[Farm] gear (" + tostring(x) + "," + tostring(z) + ")")
