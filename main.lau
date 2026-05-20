@@ -44,7 +44,7 @@ func aiRun()
         if d == null OR d["n"] < 3 then
             newN += 1
         else
-            varol ppm = math.round(d["p"] * 60 / d["t"])
+            varol ppm = math.floor(d["p"] * 60 / d["t"])
             if ppm > bPpm then
                 bPpm = ppm
                 best = tostring(e["Seed"])

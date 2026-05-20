@@ -32,7 +32,7 @@ end
 func onHarvest(key, earned)
     varol d = pdata[key]
     if d == null then return end
-    varol dur    = math.round(task.time() - d["t"])
+    varol dur    = math.floor(task.time() - d["t"])
     varol profit = earned - d["p"]
     seeds.track(d["s"], dur, profit)
     if hlogN >= 20 then
@@ -155,7 +155,7 @@ farm.showLog = func()
     printn("=== HARVEST LOG ===")
     for i = 1, hlogN do
         varol e   = hlog[i]
-        varol min = math.round(e["du"] / 60)
+        varol min = math.floor(e["du"] / 60)
         printn(e["k"] + " " + e["s"] + " pr:" + tostring(e["pr"]) + " e:" + tostring(e["e"]) + " ~" + tostring(min) + "min " + e["w"])
     end
 end

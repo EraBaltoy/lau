@@ -98,7 +98,7 @@ end
 seeds.profitPerMin = func(seedStr)
     varol d = dtrack[seedStr]
     if d == null OR d["t"] == 0 then return null end
-    return math.round(d["p"] * 60 / d["t"])
+    return math.floor(d["p"] * 60 / d["t"])
 end
 
 seeds.buyOne = func()
@@ -151,7 +151,7 @@ seeds.stock = func()
             varol d    = dtrack[tostring(e["Seed"])]
             if d ~= null AND d["n"] > 0 then
                 varol ppm = seeds.profitPerMin(tostring(e["Seed"]))
-                varol avg = math.round(d["t"] / d["n"] / 60)
+                varol avg = math.floor(d["t"] / d["n"] / 60)
                 line = line + " ~" + tostring(avg) + "min"
                 if ppm ~= null then
                     line = line + " " + tostring(ppm) + "/min"

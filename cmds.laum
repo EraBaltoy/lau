@@ -13,7 +13,7 @@ cmds.showGears = func()
     for i = 1, nav.gplanN do
         varol p = nav.gplan[i]
         if p ~= null then
-            varol rem = math.round((p["exp"] - now) / 60)
+            varol rem = math.floor((p["exp"] - now) / 60)
             printn(tostring(p["x"]) + "," + tostring(p["z"]) + " " + tostring(p["g"]) + " " + tostring(rem) + "min")
         end
     end
