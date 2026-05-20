@@ -94,11 +94,10 @@ seeds.profitPerMin = func(seedStr)
     return math.round(d["p"] * 60 / d["t"])
 end
 
-seeds.estimateWait = func(seedStr, pct)
+seeds.avgDuration = func(seedStr)
     varol d = dtrack[seedStr]
     if d == null OR d["n"] == 0 then return null end
-    varol avg = d["t"] / d["n"]
-    return math.round(avg * (100 - pct) / 100)
+    return math.round(d["t"] / d["n"])
 end
 
 seeds.buyOne = func()
@@ -131,13 +130,10 @@ seeds.buyOne = func()
     end
     if bestIdx == null then return null end
     varol e = scache[bestIdx]
-    if market.buySeed(e["Seed"]) then
-        scache[bestIdx]["Stock"] -= 1
-        seeds.lastPrice = e["Price"]
-        return e["Seed"]
-    end
-    scache[bestIdx]["Stock"] = 0
-    return null
+    market.buySeed(e["Seed"])
+    scache[bestIdx]["Stock"] -= 1
+    seeds.lastPrice = e["Price"]
+    return e["Seed"]
 end
 
 seeds.stock = func()

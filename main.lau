@@ -58,14 +58,13 @@ func doGears()
             if fi ~= null then
                 varol e = nav.gcache[fi]
                 if player.scrap() >= e["Price"] then
-                    if market.buyGear(e["Gear"]) then
-                        nav.gcache[fi]["Stock"] -= 1
-                        nav.to(p["x"], p["z"])
-                        pcall(func() drone.useItem(e["Gear"]) end)
-                        nav.gplan[i]["exp"] = now + p["d"] * 60
-                        nav.markGear(p["x"], p["z"])
-                        printn("[Gear] (" + tostring(p["x"]) + "," + tostring(p["z"]) + ")")
-                    end
+                    market.buyGear(e["Gear"])
+                    nav.gcache[fi]["Stock"] -= 1
+                    nav.to(p["x"], p["z"])
+                    pcall(func() drone.useItem(e["Gear"]) end)
+                    nav.gplan[i]["exp"] = now + p["d"] * 60
+                    nav.markGear(p["x"], p["z"])
+                    printn("[Gear] (" + tostring(p["x"]) + "," + tostring(p["z"]) + ")")
                 end
             end
         end

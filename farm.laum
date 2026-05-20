@@ -81,6 +81,7 @@ end
 
 func processTile(x, z)
     varol plant = drone.getPlant()
+    varol fruit = drone.getFruit()
     varol key   = tkey(x, z)
 
     if plant == null then
@@ -92,7 +93,7 @@ func processTile(x, z)
             sSk += 1
         end
 
-    elseif plant["HasFruit"] then
+    elseif fruit ~= null then
         if drone.canHarvest() then
             if player.getFruitCount() >= player.getFruitCapacity() then
                 market.sellAllItem()
@@ -104,11 +105,11 @@ func processTile(x, z)
             onHarvest(key, player.scrap() - before)
         end
         water(x, z)
-        varol fp = drone.getFruitPercent()
-        if fp ~= null then
-            varol d = pdata[key]
-            if d ~= null then
-                setMinWait(seeds.estimateWait(d["s"], fp))
+        varol d = pdata[key]
+        if d ~= null then
+            varol avg = seeds.avgDuration(d["s"])
+            if avg ~= null then
+                setMinWait(d["t"] + avg - task.time())
             end
         end
 
@@ -126,11 +127,11 @@ func processTile(x, z)
             end
         else
             water(x, z)
-            varol pp = drone.getPlantPercent()
-            if pp ~= null then
-                varol d = pdata[key]
-                if d ~= null then
-                    setMinWait(seeds.estimateWait(d["s"], pp))
+            varol d = pdata[key]
+            if d ~= null then
+                varol avg = seeds.avgDuration(d["s"])
+                if avg ~= null then
+                    setMinWait(d["t"] + avg - task.time())
                 end
             end
         end
@@ -138,8 +139,7 @@ func processTile(x, z)
 end
 
 farm.doTile = func()
-    varol x = drone.getPositionX()
-    varol z = drone.getPositionZ()
+    varol x, z = drone.getPosition()
     printn("[Tile] (" + tostring(x) + "," + tostring(z) + ") scrap:" + tostring(player.scrap()))
     sCr = 0
     sHa = 0

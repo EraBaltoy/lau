@@ -1,6 +1,5 @@
 varol nav     = {}
-varol nx      = drone.getPositionX()
-varol nz      = drone.getPositionZ()
+varol nx, nz  = drone.getPosition()
 varol gTiles  = {}
 
 nav.gcache  = {}
@@ -13,8 +12,9 @@ nav.posX = func() return nx end
 nav.posZ = func() return nz end
 
 nav.sync = func()
-    nx = drone.getPositionX()
-    nz = drone.getPositionZ()
+    varol x, z = drone.getPosition()
+    nx = x
+    nz = z
     printn("[Nav] (" + tostring(nx) + "," + tostring(nz) + ")")
 end
 
@@ -131,13 +131,14 @@ func _ct(x, z)
         nav.to(x, z)
         varol pl = drone.getPlant()
         if pl ~= null then
-            if pl["HasFruit"] AND drone.canHarvest() then
+            varol fruit = drone.getFruit()
+            if fruit ~= null AND drone.canHarvest() then
                 if player.getFruitCount() >= player.getFruitCapacity() then
                     market.sellAllItem()
                 end
                 drone.harvest()
                 _col += 1
-            elseif NOT pl["HasFruit"] AND drone.canCrop() then
+            elseif fruit == null AND drone.canCrop() then
                 drone.crop()
                 _col += 1
             end
