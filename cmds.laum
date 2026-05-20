@@ -100,15 +100,11 @@ cmds.init = func(toggleAuto)
             varol x = nav.posX()
             varol z = nav.posZ()
             varol rst  = market.getSeedStockTime()
-            varol lw   = farm.lastWait
             printn("=== STATUS ===")
             printn("Scrap   : " + tostring(player.scrap()))
             printn("Reserva : " + tostring(seeds.getReserve()))
             printn("Comprar : " + tostring(seeds.canAfford()))
             printn("Restock : " + tostring(rst) + "s")
-            if lw ~= null then
-                printn("Prox    : ~" + tostring(math.round(lw / 60)) + "min")
-            end
             printn("Drone   : (" + tostring(x) + "," + tostring(z) + ")")
             printn("Tiles   : " + tostring(t) + " (" + tostring(sq) + " total)")
             printn("Clima   : " + game.weather())

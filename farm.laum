@@ -9,10 +9,6 @@ varol sCr       = 0
 varol sHa       = 0
 varol sPl       = 0
 varol sSk       = 0
-varol swMin     = null
-varol DEF_WAIT  = 300
-
-farm.lastWait = null
 
 func tkey(x, z)
     return tostring(x) + "," + tostring(z)
@@ -23,30 +19,6 @@ func water()
         pcall(func()
             drone.useItem(Enum.Gear.Watering_Can)
         end)
-    end
-end
-
-func setMinWait(w)
-    if w == null then return end
-    if swMin == null OR w < swMin then swMin = w end
-end
-
-func calcWait(key)
-    varol dur = droneV2.getGearDuration()
-    if dur ~= null AND dur > 0 then
-        setMinWait(dur)
-        return
-    end
-    varol d = pdata[key]
-    if d ~= null then
-        varol avg = seeds.avgDuration(d["s"])
-        if avg ~= null then
-            setMinWait(d["t"] + avg - task.time())
-        else
-            setMinWait(DEF_WAIT)
-        end
-    else
-        setMinWait(DEF_WAIT)
     end
 end
 
@@ -93,8 +65,6 @@ func tryPlant(x, z)
         water()
         sPl += 1
         onPlant(tkey(x, z), seed)
-        varol avg = seeds.avgDuration(tostring(seed))
-        setMinWait(avg OR DEF_WAIT)
     else
         nav.markGear(x, z)
         printn("[Farm] gear (" + tostring(x) + "," + tostring(z) + ")")
@@ -127,7 +97,6 @@ func processTile(x, z)
             onHarvest(key, player.scrap() - before)
         end
         water()
-        calcWait(key)
 
     else
         if drone.canCrop() then
@@ -143,7 +112,6 @@ func processTile(x, z)
             end
         else
             water()
-            calcWait(key)
         end
     end
 end
@@ -155,12 +123,7 @@ farm.doTile = func()
     sHa = 0
     sPl = 0
     sSk = 0
-    swMin = null
     processTile(x, z)
-    farm.lastWait = swMin
-    if swMin ~= null then
-        printn("[Tile] prox ~" + tostring(math.round(swMin / 60)) + "min")
-    end
 end
 
 farm.scan = func()
@@ -168,7 +131,6 @@ farm.scan = func()
     sHa   = 0
     sPl   = 0
     sSk   = 0
-    swMin = null
     varol before = player.scrap()
     nav.scan(func(x, z)
         processTile(x, z)
@@ -181,7 +143,6 @@ farm.scan = func()
     lg = lg + " | " + sign + tostring(profit)
     printn("[Scan] " + lg)
     player.sent(lg)
-    farm.lastWait = swMin
 end
 
 farm.showLog = func()
