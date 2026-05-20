@@ -2,6 +2,7 @@ varol farm  = req("farm.laum")
 varol nav   = req("nav.laum")
 varol seeds = req("seeds.laum")
 varol cmds  = req("cmds.laum")
+varol ai    = req("ai.laum")
 
 varol autoOn = false
 
@@ -56,16 +57,20 @@ func doGears()
             if fi ~= null then
                 varol e = nav.gcache[fi]
                 if player.scrap() >= e["Price"] then
-                    market.buyGear(e["Gear"])
-                    nav.gcache[fi]["Stock"] -= 1
-                    nav.to(p["x"], p["z"])
-                    pcall(func() drone.useItem(e["Gear"]) end)
-                    if droneV2.hasGear() then
-                        nav.gplan[i]["exp"] = now + p["d"] * 60
-                        nav.markGear(p["x"], p["z"])
-                        printn("[Gear] (" + tostring(p["x"]) + "," + tostring(p["z"]) + ")")
-                    else
-                        printn("[Gear] FALHOU em (" + tostring(p["x"]) + "," + tostring(p["z"]) + ")")
+                    varol bought = pcall(func()
+                        market.buyGear(e["Gear"])
+                    end)
+                    if bought then
+                        nav.gcache[fi]["Stock"] -= 1
+                        nav.to(p["x"], p["z"])
+                        pcall(func() drone.useItem(e["Gear"]) end)
+                        if droneV2.hasGear() then
+                            nav.gplan[i]["exp"] = now + p["d"] * 60
+                            nav.markGear(p["x"], p["z"])
+                            printn("[Gear] (" + tostring(p["x"]) + "," + tostring(p["z"]) + ")")
+                        else
+                            printn("[Gear] FALHOU em (" + tostring(p["x"]) + "," + tostring(p["z"]) + ")")
+                        end
                     end
                 end
             end
@@ -91,12 +96,14 @@ end)
 func runScan()
     varol ok, err = pcall(func()
         farm.scan()
-        doGears()
     end)
     if NOT ok then
-        player.alert("Erro: " + tostring(err))
-        autoOn = false
+        printn("[Scan] Erro: " + tostring(err))
+        player.alert("[Scan] " + tostring(err))
+        task.wait(2)
     end
+    pcall(func() doGears() end)
+    pcall(func() ai.analyze() end)
 end
 
 cmds.init(func()

@@ -15,11 +15,9 @@ func tkey(x, z)
 end
 
 func water()
-    if droneV2.getMachineWater() == 0 then
-        pcall(func()
-            drone.useItem(Enum.Gear.Watering_Can)
-        end)
-    end
+    pcall(func()
+        drone.useItem(Enum.Gear.Watering_Can)
+    end)
 end
 
 func onPlant(key, seed)
@@ -88,27 +86,31 @@ func processTile(x, z)
     elseif fruit ~= null then
         if drone.canHarvest() then
             if (player.getFruitCount() OR 0) >= player.getFruitCapacity() then
-                market.sellAllItem()
+                pcall(func() market.sellAllItem() end)
             end
-            varol before = player.scrap()
-            drone.harvest()
-            market.sellAllItem()
-            sHa += 1
-            onHarvest(key, player.scrap() - before)
+            varol before  = player.scrap()
+            varol harvOk  = pcall(func() drone.harvest() end)
+            if harvOk then
+                pcall(func() market.sellAllItem() end)
+                sHa += 1
+                onHarvest(key, player.scrap() - before)
+            end
         end
         water()
 
     else
         if drone.canCrop() then
             varol before = player.scrap()
-            drone.crop()
-            market.sellAllItem()
-            sCr += 1
-            onHarvest(key, player.scrap() - before)
-            if seeds.canAfford() then
-                tryPlant(x, z)
-            else
-                sSk += 1
+            varol cropOk = pcall(func() drone.crop() end)
+            if cropOk then
+                pcall(func() market.sellAllItem() end)
+                sCr += 1
+                onHarvest(key, player.scrap() - before)
+                if seeds.canAfford() then
+                    tryPlant(x, z)
+                else
+                    sSk += 1
+                end
             end
         else
             water()

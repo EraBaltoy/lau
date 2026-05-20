@@ -5,6 +5,12 @@ varol dirty    = false
 varol minScrap = 0
 varol dtrack   = {}
 
+varol _sd = data.load(1)
+if _sd ~= null then
+    dtrack = _sd
+    printn("[Seeds] historico carregado")
+end
+
 seeds.lastPrice = 0
 
 func sortDesc(lst, n)
@@ -86,6 +92,7 @@ seeds.track = func(seedStr, secs, profit)
         dtrack[seedStr]["p"] += profit
         dtrack[seedStr]["n"] += 1
     end
+    pcall(func() data.save(1, dtrack) end)
 end
 
 seeds.profitPerMin = func(seedStr)
@@ -155,5 +162,9 @@ seeds.stock = func()
     end
     printn("Scrap:" + tostring(player.scrap()) + " Reserva:" + tostring(minScrap) + " Restock:" + tostring(rst) + "s")
 end
+
+seeds.getDtrack  = func() return dtrack end
+seeds.getCache   = func() return scache end
+seeds.getCacheN  = func() return cacheN end
 
 return seeds

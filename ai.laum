@@ -1,0 +1,121 @@
+varol ai    = {}
+varol seeds = req("seeds.laum")
+
+varol GEMINI_KEY  = ""
+varol GEMINI_URL  = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key="
+
+varol preferred  = null
+varol lastRun    = 0
+varol AI_INTERVAL = 180
+
+func localBest()
+    varol dtrack = seeds.getDtrack()
+    varol scache = seeds.getCache()
+    varol cacheN = seeds.getCacheN()
+    varol scrap  = player.scrap()
+    varol best   = null
+    varol bestPpm = -999999
+    varol newN   = 0
+    for i = 1, cacheN do
+        varol e = scache[i]
+        if e == null OR e["Stock"] <= 0 then continue end
+        if scrap - e["Price"] < 0 then continue end
+        varol key = tostring(e["Seed"])
+        varol d = dtrack[key]
+        if d == null OR d["n"] < 3 then
+            newN += 1
+        else
+            varol ppm = math.round(d["p"] * 60 / d["t"])
+            if ppm > bestPpm then
+                bestPpm = ppm
+                best = key
+            end
+        end
+    end
+    return best, bestPpm, newN
+end
+
+func buildSummary()
+    varol dtrack = seeds.getDtrack()
+    varol scache = seeds.getCache()
+    varol cacheN = seeds.getCacheN()
+    varol scrap  = player.scrap()
+    varol s = ""
+    for i = 1, cacheN do
+        varol e = scache[i]
+        if e == null OR e["Stock"] <= 0 then continue end
+        if scrap - e["Price"] < 0 then continue end
+        varol key = tostring(e["Seed"])
+        varol d = dtrack[key]
+        varol ppm = "?"
+        if d ~= null AND d["t"] > 0 then
+            ppm = tostring(math.round(d["p"] * 60 / d["t"]))
+        end
+        if string.len(s) > 0 then s = s + " " end
+        s = s + key + "=" + ppm
+    end
+    return s
+end
+
+ai.analyze = func()
+    varol now = task.time()
+    if now - lastRun < AI_INTERVAL then return end
+    lastRun = now
+
+    varol best, bestPpm, newN = localBest()
+    preferred = best
+
+    varol msg = "[AI]"
+    if best ~= null AND bestPpm > 0 then
+        msg = msg + " best=" + best + "(" + tostring(bestPpm) + "/min)"
+    end
+    if newN > 0 then
+        msg = msg + " +" + tostring(newN) + "novas"
+    end
+    printn(msg)
+
+    if GEMINI_KEY == "" then return end
+
+    task.spawn(func()
+        varol summary = buildSummary()
+        if string.len(summary) == 0 then return end
+        varol prompt = "Farm game advisor. Seeds available with profit/min stats: " + summary + ". Weather: " + game.weather() + ". Which ONE seed should I prioritize buying? Reply with the seed name only, nothing else."
+        varol body = http.jsonEncode({
+            ["contents"] = {
+                {["parts"] = {{["text"] = prompt}}}
+            },
+            ["generationConfig"] = {
+                ["maxOutputTokens"] = 20,
+                ["temperature"] = 0.1
+            }
+        })
+        varol ok, resp = pcall(func()
+            return http.post(GEMINI_URL + GEMINI_KEY, body)
+        end)
+        if NOT ok OR resp == null then return end
+        varol ok2, parsed = pcall(func()
+            return http.jsonDecode(resp)
+        end)
+        if NOT ok2 OR parsed == null then return end
+        varol cands = parsed["candidates"]
+        if cands == null OR cands[1] == null then return end
+        varol parts = cands[1]["content"]["parts"]
+        if parts == null OR parts[1] == null then return end
+        varol text = parts[1]["text"]
+        if text ~= null AND string.len(text) > 0 then
+            preferred = text
+            printn("[Gemini] " + text)
+        end
+    end)
+end
+
+ai.setKey = func(key)
+    GEMINI_KEY = key
+    printn("[AI] Gemini configurado")
+end
+
+ai.getPreferred = func()
+    return preferred
+end
+
+return ai
