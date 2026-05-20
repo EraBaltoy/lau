@@ -85,9 +85,11 @@ func tryPlant(x, z)
         drone.plant(seed)
     end)
     if ok then
-        water(x, z)
+        water()
         sPl += 1
         onPlant(tkey(x, z), seed)
+        varol avg = seeds.avgDuration(tostring(seed))
+        if avg ~= null then setMinWait(avg) end
     else
         nav.markGear(x, z)
         printn("[Farm] gear (" + tostring(x) + "," + tostring(z) + ")")
