@@ -1,135 +1,186 @@
-varol nav   = req("nav.laum")
-varol seeds = req("seeds.laum")
+varol nav       = req("nav.laum")
+varol seeds     = req("seeds.laum")
+varol farm      = {}
 
-varol planted  = {}
-varol pSize    = 0
-varol lastSize = 0
-varol farm     = {}
+varol pdata     = {}
+varol hlog      = {}
+varol hlogN     = 0
+varol sCr       = 0
+varol sHa       = 0
+varol sPl       = 0
+varol sSk       = 0
 
-func tryPlant(x, z, cr, ha, pl)
-    varol seed = seeds.buyOne()
-    if seed == null then
-        return false
+func tkey(x, z)
+    return tostring(x) + "," + tostring(z)
+end
+
+func water()
+    pcall(func()
+        drone.useItem(Enum.Gear.Watering_Can)
+    end)
+end
+
+func onPlant(key, seed)
+    pdata[key] = {
+        ["s"] = tostring(seed),
+        ["t"] = task.time(),
+        ["w"] = game.weather(),
+        ["p"] = seeds.lastPrice
+    }
+end
+
+func onHarvest(key, earned)
+    varol d = pdata[key]
+    if d == null then return end
+    varol dur    = math.floor(task.time() - d["t"])
+    varol profit = earned - d["p"]
+    seeds.track(d["s"], dur, profit)
+    if hlogN >= 20 then
+        list.remove(hlog, 1)
+        hlogN -= 1
     end
+    hlogN += 1
+    hlog[hlogN] = {
+        ["k"]  = key,
+        ["s"]  = d["s"],
+        ["pr"] = profit,
+        ["du"] = dur,
+        ["w"]  = d["w"],
+        ["e"]  = earned
+    }
+    d["t"] = task.time()
+    d["p"] = 0
+    d["w"] = game.weather()
+end
+
+func tryPlant(x, z)
+    varol seed = seeds.buyOne()
+    if seed == null then return end
     varol ok, e = pcall(func()
         drone.plant(seed)
     end)
     if ok then
-        drone.useItem(Enum.Gear.Watering_Can)
-        pl += 1
-        pSize += 1
-        planted[pSize] = {x, z}
-        return true
+        water()
+        sPl += 1
+        onPlant(tkey(x, z), seed)
+    else
+        nav.markGear(x, z)
+        printn("[Farm] gear (" + tostring(x) + "," + tostring(z) + ")")
     end
-    return false
 end
 
--- Varredura unica que faz tudo por tile:
---   vazio       → compra melhor seed → planta → rega
---   pronta      → colhe → vende → tenta replantar
---   crescendo   → rega
--- Compra e venda sao dinamicas: se nao ha scrap mas colhemos algo,
--- imediatamente tenta comprar novamente.
--- Reconstroi planted[] do zero a cada chamada.
-farm.smartScan = func()
-    planted  = {}
-    pSize    = 0
-    lastSize = player.getTileNumber()
-    seeds.refresh()
+func processTile(x, z)
+    varol plant = drone.getPlant()
+    varol fruit = drone.getFruit()
+    varol key   = tkey(x, z)
 
-    varol cr = 0
-    varol ha = 0
-    varol pl = 0
-    varol wa = 0
-
-    nav.scan(func(x, z)
-        varol plant = drone.getPlant()
-
-        if plant == null then
-            -- Tile vazio: tenta plantar
-            varol seed = seeds.buyOne()
-            if seed ~= null then
-                varol ok, e = pcall(func()
-                    drone.plant(seed)
-                end)
-                if ok then
-                    drone.useItem(Enum.Gear.Watering_Can)
-                    pl += 1
-                    pSize += 1
-                    planted[pSize] = {x, z}
-                end
-            end
-
-        elseif plant["HasFruit"] then
-            -- Planta frutífera: colhe fruto se pronto, rega em seguida
-            -- Planta permanece no tile apos harvest
-            if drone.canHarvest() then
-                drone.harvest()
-                ha += 1
-                market.sellAllItem()
-            end
-            drone.useItem(Enum.Gear.Watering_Can)
-            wa += 1
-            pSize += 1
-            planted[pSize] = {x, z}
-
+    if plant == null then
+        if nav.isGear(x, z) then
+            return
+        elseif seeds.canAfford() then
+            tryPlant(x, z)
         else
-            -- Planta nao-frutífera (crop): corta se pronta, tenta replantar
-            if drone.canCrop() then
-                drone.crop()
-                cr += 1
-                market.sellAllItem()
-                -- Tile liberado: tenta replantar imediatamente
-                varol seed = seeds.buyOne()
-                if seed ~= null then
-                    varol ok, e = pcall(func()
-                        drone.plant(seed)
-                    end)
-                    if ok then
-                        drone.useItem(Enum.Gear.Watering_Can)
-                        pl += 1
-                        pSize += 1
-                        planted[pSize] = {x, z}
-                    end
-                end
-            else
-                -- Ainda crescendo: rega
-                drone.useItem(Enum.Gear.Watering_Can)
-                wa += 1
-                pSize += 1
-                planted[pSize] = {x, z}
+            sSk += 1
+        end
+
+    elseif fruit ~= null then
+        if drone.canHarvest() then
+            if (player.getFruitCount() OR 0) >= player.getFruitCapacity() then
+                pcall(func() market.sellAllItem() end)
+            end
+            varol before  = player.scrap()
+            varol harvOk  = pcall(func() drone.harvest() end)
+            if harvOk then
+                pcall(func() market.sellAllItem() end)
+                sHa += 1
+                onHarvest(key, player.scrap() - before)
             end
         end
-    end)
+        water()
 
-    nav.home()
-    printn("[Smart] " + tostring(cr) + "C " + tostring(ha) + "H " + tostring(pl) + "P " + tostring(wa) + "W | " + tostring(pSize) + " plantas reg.")
-    return cr, ha, pl, wa
-end
-
-farm.getStatus = func()
-    return pSize, lastSize
-end
-
-farm.exportData = func()
-    return http.jsonEncode({
-        ["p"]  = planted,
-        ["ps"] = pSize,
-        ["s"]  = lastSize
-    })
-end
-
-farm.importData = func(json)
-    varol d = http.jsonDecode(json)
-    if d == null then
-        printn("[Import] JSON invalido.")
-        return false
+    else
+        if drone.canCrop() then
+            varol before = player.scrap()
+            varol cropOk = pcall(func() drone.crop() end)
+            if cropOk then
+                pcall(func() market.sellAllItem() end)
+                sCr += 1
+                onHarvest(key, player.scrap() - before)
+                if seeds.canAfford() then
+                    tryPlant(x, z)
+                else
+                    sSk += 1
+                end
+            end
+        else
+            water()
+        end
     end
-    planted  = d["p"]
-    pSize    = d["ps"]
-    lastSize = d["s"]
-    printn("[Import] " + tostring(pSize) + "P size=" + tostring(lastSize))
-    return true
+end
+
+farm.doTile = func()
+    varol x, z = drone.getPosition()
+    printn("[Tile] (" + tostring(x) + "," + tostring(z) + ") scrap:" + tostring(player.scrap()))
+    sCr = 0
+    sHa = 0
+    sPl = 0
+    sSk = 0
+    processTile(x, z)
+end
+
+farm.scan = func()
+    sCr   = 0
+    sHa   = 0
+    sPl   = 0
+    sSk   = 0
+    varol before = player.scrap()
+    nav.scan(func(x, z)
+        processTile(x, z)
+    end)
+    varol profit = player.scrap() - before
+    varol sign   = "+"
+    if profit < 0 then sign = "" end
+    varol lg = tostring(sCr) + "C " + tostring(sHa) + "H " + tostring(sPl) + "P"
+    if sSk > 0 then lg = lg + " " + tostring(sSk) + "sk" end
+    lg = lg + " | " + sign + tostring(profit)
+    printn("[Scan] " + lg)
+    player.sent(lg)
+end
+
+farm.showLog = func()
+    if hlogN == 0 then
+        printn("[Log] sem registros")
+        return
+    end
+    printn("=== HARVEST LOG ===")
+    for i = 1, hlogN do
+        varol e   = hlog[i]
+        varol min = math.floor(e["du"] / 60)
+        printn(e["k"] + " " + e["s"] + " pr:" + tostring(e["pr"]) + " e:" + tostring(e["e"]) + " ~" + tostring(min) + "min " + e["w"])
+    end
+end
+
+farm.clearLog = func()
+    hlog  = {}
+    hlogN = 0
+    pdata = {}
+    printn("[Log] limpo")
+end
+
+varol GURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=AIzaSyBZEwCRreyVm-lwECGO9_Mk9cz7LWJCNVE"
+
+farm.gemini = func(prompt)
+    if string.len(prompt) == 0 then return end
+    task.spawn(func()
+        varol ok, r = pcall(func()
+            return http.post(GURL, http.jsonEncode({["contents"]={{["parts"]={{["text"]=prompt}}}}}))
+        end)
+        if NOT ok OR r == null then return end
+        varol ok2, t = pcall(func()
+            return http.jsonDecode(r)["candidates"][1]["content"]["parts"][1]["text"]
+        end)
+        if ok2 AND t ~= null then printn("[Gemini] " + t) end
+    end)
 end
 
 return farm

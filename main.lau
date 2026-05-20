@@ -1,2 +1,170 @@
-varol cmds = req("cmds.laum")
-cmds.init()
+varol farm  = req("farm.laum")
+varol nav   = req("nav.laum")
+varol seeds = req("seeds.laum")
+varol cmds  = req("cmds.laum")
+
+varol FB     = "https://farmbot-lau-default-rtdb.firebaseio.com"
+varol autoOn = false
+varol fbLast = 0
+varol aiLast = 0
+
+clearn()
+printn("=== FARMBOT ===")
+printn("Scrap : " + tostring(player.scrap()))
+printn("Tiles : " + tostring(player.getTileNumber()))
+printn("Clima : " + game.weather())
+printn("help  → comandos")
+
+func fbSave()
+    varol now = task.time()
+    if now - fbLast < 300 then return end
+    fbLast = now
+    task.spawn(func()
+        varol ok, body = pcall(func() return http.jsonEncode(seeds.getDtrack()) end)
+        if ok then
+            pcall(func() http.post(FB + "/dtrack.json", body) end)
+        end
+    end)
+end
+
+func aiRun()
+    varol now = task.time()
+    if now - aiLast < 180 then return end
+    aiLast = now
+    varol dt = seeds.getDtrack()
+    varol sc = seeds.getCache()
+    varol cn = seeds.getCacheN()
+    varol best = null
+    varol bPpm = 0
+    varol newN = 0
+    for i = 1, cn do
+        varol e = sc[i]
+        if e == null OR e["Stock"] <= 0 then continue end
+        varol d = dt[tostring(e["Seed"])]
+        if d == null OR d["n"] < 3 then
+            newN += 1
+        else
+            varol ppm = math.floor(d["p"] * 60 / d["t"])
+            if ppm > bPpm then
+                bPpm = ppm
+                best = tostring(e["Seed"])
+            end
+        end
+    end
+    varol m = "[AI]"
+    if best ~= null then m = m + " " + best + " " + tostring(bPpm) + "/min" end
+    if newN > 0 then m = m + " +" + tostring(newN) + "novas" end
+    printn(m)
+    if best ~= null then
+        pcall(func() farm.gemini("w:" + game.weather() + " best:" + best + " " + tostring(bPpm) + "/min. Better?") end)
+    end
+end
+
+func refreshGears()
+    nav.gcache  = {}
+    nav.gcacheN = 0
+    varol raw = market.getGearStock()
+    if raw == null then return end
+    varol n   = 0
+    varol tmp = {}
+    for i, e inpairs(raw) do
+        varol g = e["Gear"]
+        varol s = e["Stock"]
+        if g ~= null AND s ~= null AND s > 0 AND NOT string.find(tostring(g), "Water") then
+            varol p = market.getGearPrice(g)
+            if p ~= null AND p > 0 then
+                n += 1
+                tmp[n] = {["Gear"]=g,["Stock"]=s,["Price"]=p}
+            end
+        end
+    end
+    nav.gcache  = tmp
+    nav.gcacheN = n
+    printn("[Gears] " + tostring(n) + " disponiveis")
+end
+
+func doGears()
+    if nav.gplanN == 0 then
+        refreshGears()
+        nav.autoPlan()
+    end
+    if nav.gplanN == 0 then return end
+    varol now = task.time()
+    for i = 1, nav.gplanN do
+        varol p = nav.gplan[i]
+        if p ~= null AND now >= p["exp"] then
+            if nav.gcacheN == 0 then refreshGears() end
+            varol fi = null
+            for j = 1, nav.gcacheN do
+                varol e = nav.gcache[j]
+                if e ~= null AND tostring(e["Gear"]) == tostring(p["g"]) AND e["Stock"] > 0 then
+                    fi = j
+                end
+            end
+            if fi ~= null then
+                varol e = nav.gcache[fi]
+                if player.scrap() >= e["Price"] then
+                    varol bought = pcall(func()
+                        market.buyGear(e["Gear"])
+                    end)
+                    if bought then
+                        nav.gcache[fi]["Stock"] -= 1
+                        nav.to(p["x"], p["z"])
+                        pcall(func() drone.useItem(e["Gear"]) end)
+                        if droneV2.hasGear() then
+                            nav.gplan[i]["exp"] = now + p["d"] * 60
+                            nav.markGear(p["x"], p["z"])
+                            printn("[Gear] " + tostring(p["x"]) + "," + tostring(p["z"]))
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+game.changedWeather:connect(func()
+    player.alert("Clima: " + game.weather())
+end)
+
+market.changedSeedStock:connect(func()
+    player.alert("Seeds restocadas!")
+    seeds.refresh()
+end)
+
+market.changedGearStock:connect(func()
+    player.alert("Gears restocados!")
+    refreshGears()
+    nav.autoPlan()
+end)
+
+func runScan()
+    varol ok, err = pcall(func()
+        farm.scan()
+    end)
+    if NOT ok then
+        player.alert("Err:" + tostring(err))
+        task.wait(2)
+    end
+    pcall(func() doGears() end)
+    pcall(func() aiRun() end)
+    pcall(func() fbSave() end)
+end
+
+cmds.init(func()
+    if autoOn then
+        autoOn = false
+        player.sent("Auto OFF")
+    else
+        autoOn = true
+        player.sent("Auto ON")
+    end
+end)
+
+while true do
+    if autoOn then
+        runScan()
+    else
+        task.wait(2)
+    end
+end

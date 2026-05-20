@@ -1,116 +1,133 @@
-varol nav   = req("nav.laum")
 varol farm  = req("farm.laum")
+varol nav   = req("nav.laum")
 varol seeds = req("seeds.laum")
-varol cmds  = {}
 
-varol PB_KEY   = ""
-varol PB_PASTE = ""
+varol cmds = {}
 
-cmds.init = func()
-    market.changedSeedStock:connect(func()
-        player.alert("Mercado reabastecido!")
-        seeds.markDirty()
-    end)
+cmds.showGears = func()
+    if nav.gplanN == 0 then
+        printn("[Gears] sem plano")
+        return
+    end
+    varol now = task.time()
+    for i = 1, nav.gplanN do
+        varol p = nav.gplan[i]
+        if p ~= null then
+            varol rem = math.floor((p["exp"] - now) / 60)
+            printn(tostring(p["x"]) + "," + tostring(p["z"]) + " " + tostring(p["g"]) + " " + tostring(rem) + "min")
+        end
+    end
+end
 
+cmds.init = func(toggleAuto)
     player.chatted:connect(func(msg)
         msg = string.lower(msg)
 
-        if msg == "smart" then
-            player.sent("Iniciando varredura...")
-            varol cr, ha, pl, wa = farm.smartScan()
-            varol line = tostring(cr) + "C " + tostring(ha) + "H "
-            line = line + tostring(pl) + "P " + tostring(wa) + "W"
-            player.sent("Ciclo OK! " + line)
+        if msg == "auto" then
+            toggleAuto()
+
+        elseif msg == "tile" then
+            farm.doTile()
+
+        elseif msg == "scan" then
+            player.sent("Scan iniciado...")
+            varol ok, err = pcall(func()
+                farm.scan()
+            end)
+            if NOT ok then
+                player.alert("Erro: " + tostring(err))
+            end
 
         elseif msg == "sell" then
             market.sellAllItem()
-            player.sent("Vendido!")
+            player.sent("Vendido! Scrap: " + tostring(player.scrap()))
 
-        elseif msg == "save" then
-            if PB_KEY == "" then
-                player.sent("Configure: pbkey <api_key>")
-            else
-                player.sent("Salvando...")
-                varol json = farm.exportData()
-                varol key  = nav.pbSave(PB_KEY, json)
-                if key ~= null then
-                    PB_PASTE = key
-                    player.sent("Salvo! key=" + key)
-                else
-                    player.sent("Erro ao salvar.")
-                end
-            end
+        elseif msg == "stock" then
+            seeds.refresh()
+            seeds.stock()
 
-        elseif string.sub(msg, 1, 5) == "load " then
-            varol key = string.sub(msg, 6)
-            player.sent("Carregando " + key + "...")
-            varol json = nav.pbLoad(key)
-            if json ~= null then
-                varol ok = farm.importData(json)
-                if ok then
-                    PB_PASTE = key
-                    varol ps, ls = farm.getStatus()
-                    player.sent("OK! " + tostring(ps) + "P size=" + tostring(ls))
-                else
-                    player.sent("Falha ao importar.")
-                end
-            else
-                player.sent("Falha ao carregar.")
-            end
+        elseif msg == "log" then
+            farm.showLog()
 
-        elseif string.sub(msg, 1, 6) == "pbkey " then
-            PB_KEY = string.sub(msg, 7)
-            player.sent("API key configurada!")
+        elseif msg == "clearlog" then
+            farm.clearLog()
 
-        elseif msg == "status" then
-            varol ps, ls = farm.getStatus()
-            varol cur    = player.getTileNumber()
-            varol size   = cur - 1
-            varol total  = (size * 2 + 1) * (size * 2 + 1)
-            varol pbStr  = "OFF"
-            if PB_KEY ~= "" then
-                pbStr = "ON"
-                if PB_PASTE ~= "" then
-                    pbStr = pbStr + " paste=" + PB_PASTE
-                end
-            end
-            printn("=== STATUS ===")
-            printn("Farm    : " + tostring(cur - 1) + " | " + tostring(total) + " tiles totais")
-            printn("Planted : " + tostring(ps) + " (ultimo scan size=" + tostring(ls) + ")")
-            printn("Pastebin: " + pbStr)
-            if cur ~= ls AND ls ~= 0 then
-                printn("[WARN] Farm expandiu! Rode smart para remap.")
-            end
+        elseif msg == "col" then
+            varol ok, err = pcall(func() nav.collect() end)
+            if NOT ok then player.alert("Erro: " + tostring(err)) end
+
+        elseif msg == "gears" then
+            cmds.showGears()
+
+        elseif msg == "gplan" then
+            nav.autoPlan()
+            cmds.showGears()
+
+        elseif msg == "clearmap" then
+            nav.clearGears()
 
         elseif msg == "home" then
             nav.home()
+            player.sent("Home!")
+
+        elseif msg == "pos" then
+            varol x = nav.posX()
+            varol z = nav.posZ()
+            player.sent("(" + tostring(x) + "," + tostring(z) + ")")
 
         elseif msg == "sync" then
             nav.sync()
-
-        elseif msg == "pos" then
-            varol x, z = nav.pos()
-            player.sent("(" + tostring(x) + "," + tostring(z) + ")")
+            player.sent("Sincronizado!")
 
         elseif msg == "inv" then
             varol f = player.getFruitCount()
             varol c = player.getFruitCapacity()
             varol t = player.getInventorySize()
-            printn("Frutas: " + tostring(f) + "/" + tostring(c) + " | Tipos: " + tostring(t))
+            printn("Frutas: " + tostring(f) + "/" + tostring(c) + " | Itens: " + tostring(t))
+
+        elseif string.sub(msg, 1, 8) == "reserve " then
+            varol n = tonumber(string.sub(msg, 9))
+            if n ~= null then
+                seeds.setReserve(n)
+                player.sent("Reserva: " + tostring(n))
+            else
+                player.alert("Uso: reserve <numero>")
+            end
+
+        elseif msg == "status" then
+            varol t   = player.getTileNumber()
+            varol sq  = (t * 2 - 1) * (t * 2 - 1)
+            varol x = nav.posX()
+            varol z = nav.posZ()
+            varol rst  = market.getSeedStockTime()
+            printn("=== STATUS ===")
+            printn("Scrap   : " + tostring(player.scrap()))
+            printn("Reserva : " + tostring(seeds.getReserve()))
+            printn("Comprar : " + tostring(seeds.canAfford()))
+            printn("Restock : " + tostring(rst) + "s")
+            printn("Drone   : (" + tostring(x) + "," + tostring(z) + ")")
+            printn("Tiles   : " + tostring(t) + " (" + tostring(sq) + " total)")
+            printn("Clima   : " + game.weather())
 
         elseif msg == "help" then
-            printn("smart              varredura completa")
-            printn("sell               vende tudo")
-            printn("save               salva no Pastebin")
-            printn("load <key>         carrega do Pastebin")
-            printn("pbkey <api_key>    configura Pastebin")
-            printn("status             estado atual")
-            printn("home|pos|sync|inv  utilitarios")
+            printn("auto           liga/desliga loop (scan completo)")
+            printn("col            coleta apenas plantas prontas")
+            printn("tile           processa tile atual")
+            printn("scan           varre toda a fazenda")
+            printn("sell           vende todos os itens")
+            printn("stock          estoque + tempo medio de crescimento")
+            printn("gears          mostra plano de gears atual")
+            printn("gplan          gera novo plano de gears")
+            printn("log            historico: profit/duracao/weather")
+            printn("clearlog       limpa historico e rastreamento")
+            printn("clearmap       reseta mapa de gears")
+            printn("home/pos/sync  navegacao do drone")
+            printn("inv            inventario")
+            printn("reserve <n>    reserva minima de scrap")
+            printn("status         estado completo")
 
         end
     end)
-
-    printn("Bot pronto! Digite: smart")
 end
 
 return cmds

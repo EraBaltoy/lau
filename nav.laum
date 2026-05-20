@@ -1,122 +1,195 @@
-varol nav = {}
+varol nav     = {}
+varol nx, nz  = drone.getPosition()
+varol gTiles  = {}
 
-varol nx, nz = drone.getPosition()
+nav.gcache  = {}
+nav.gcacheN = 0
+nav.gplan   = {}
+nav.gplanN  = 0
+
+nav.pos  = func() return nx, nz end
+nav.posX = func() return nx end
+nav.posZ = func() return nz end
+
+nav.sync = func()
+    varol x, z = drone.getPosition()
+    nx = x
+    nz = z
+    printn("[Nav] (" + tostring(nx) + "," + tostring(nz) + ")")
+end
 
 nav.to = func(tx, tz)
     varol dx = tx - nx
     varol dz = tz - nz
     if dx > 0 then
-        for i = 1, dx do
-            drone.move(Enum.Direction.East)
-        end
+        for i = 1, dx do drone.move(Enum.Direction.East) end
     elseif dx < 0 then
-        for i = 1, -dx do
-            drone.move(Enum.Direction.West)
-        end
+        for i = 1, -dx do drone.move(Enum.Direction.West) end
     end
     if dz > 0 then
-        for i = 1, dz do
-            drone.move(Enum.Direction.South)
-        end
+        for i = 1, dz do drone.move(Enum.Direction.South) end
     elseif dz < 0 then
-        for i = 1, -dz do
-            drone.move(Enum.Direction.North)
+        for i = 1, -dz do drone.move(Enum.Direction.North) end
+    end
+    nx = tx
+    nz = tz
+end
+
+nav.home = func() nav.to(0, 0) end
+
+nav.isGear = func(x, z)
+    return gTiles[tostring(x) + "," + tostring(z)] == true
+end
+
+nav.markGear = func(x, z)
+    gTiles[tostring(x) + "," + tostring(z)] = true
+end
+
+nav.clearGears = func()
+    gTiles = {}
+    printn("[Nav] gears limpo")
+end
+
+nav.isCovered = func(x, z)
+    varol now = task.time()
+    for i = 1, nav.gplanN do
+        varol p = nav.gplan[i]
+        if p ~= null AND now < p["exp"] then
+            varol rng = nav.gRange(p["g"])
+            if math.abs(x - p["x"]) <= rng AND math.abs(z - p["z"]) <= rng then
+                return true
+            end
         end
     end
-    varol px, pz = drone.getPosition()
-    nx = px
-    nz = pz
+    return false
 end
 
-nav.pos = func()
-    return nx, nz
+nav.gDur = func(g)
+    varol s = tostring(g)
+    if string.find(s, "V3") then
+        return 20
+    elseif string.find(s, "V2") then
+        return 15
+    end
+    return 10
 end
 
-nav.sync = func()
-    varol rx, rz = drone.getPosition()
-    printn("[Nav] tracked=(" + tostring(nx) + "," + tostring(nz) + ")")
-    printn("[Nav] raw    =(" + tostring(rx) + "," + tostring(rz) + ")")
+nav.gRange = func(g)
+    varol s = tostring(g)
+    if string.find(s, "V3") then
+        return 3
+    elseif string.find(s, "V2") then
+        return 2
+    end
+    return 1
 end
 
-nav.home = func()
-    nav.to(0, 0)
+nav.autoPlan = func()
+    nav.gplan  = {}
+    nav.gplanN = 0
+    if nav.gcacheN == 0 then return end
+    varol bestG = null
+    varol bestP = 0
+    for i = 1, nav.gcacheN do
+        varol e = nav.gcache[i]
+        if e ~= null then
+            varol s = tostring(e["Gear"])
+            varol p = 1
+            if string.find(s, "V3") then
+                p = 3
+            elseif string.find(s, "V2") then
+                p = 2
+            end
+            if p > bestP then
+                bestP = p
+                bestG = e["Gear"]
+            end
+        end
+    end
+    if bestG == null then return end
+    varol dur  = nav.gDur(bestG)
+    varol rng  = nav.gRange(bestG)
+    varol step = rng * 2
+    varol r    = player.getTileNumber() - 1
+    varol xp   = 0 - r + rng
+    while xp <= r - rng do
+        varol zp = 0 - r + rng
+        while zp <= r - rng do
+            nav.gplanN += 1
+            nav.gplan[nav.gplanN] = {["x"]=xp,["z"]=zp,["g"]=bestG,["d"]=dur,["exp"]=0}
+            zp += step
+        end
+        xp += step
+    end
+    printn("[Gears] plano: " + tostring(nav.gplanN) + " posicoes")
+end
+
+varol _col = 0
+
+func _ct(x, z)
+    nav.to(x, z)
+    varol pl = drone.getPlant()
+    if pl ~= null then
+        varol fruit = drone.getFruit()
+        if fruit ~= null AND drone.canHarvest() then
+            if (player.getFruitCount() OR 0) >= player.getFruitCapacity() then
+                market.sellAllItem()
+            end
+            drone.harvest()
+            _col += 1
+        elseif fruit == null AND drone.canCrop() then
+            drone.crop()
+            _col += 1
+        end
+    end
+end
+
+nav.collect = func()
+    varol r    = player.getTileNumber() - 1
+    varol min  = 0 - r
+    varol max  = r
+    varol east = true
+    _col = 0
+    for z = min, max do
+        if east then
+            for x = min, max do _ct(x, z) end
+        else
+            for x = max, min, -1 do _ct(x, z) end
+        end
+        if east then east = false else east = true end
+    end
+    market.sellAllItem()
+    nav.home()
+    printn("[Col] " + tostring(_col) + " coletados")
+    return _col
 end
 
 nav.scan = func(cb)
-    varol size     = player.getTileNumber() - 1
-    varol minCoord = 0 - size
-    varol maxCoord = size
-    varol zStart   = 0 - 4
-    varol zEnd     = 0 - 3
-
-    if zStart < minCoord then
-        zStart = minCoord
-    end
-    if zEnd > maxCoord then
-        zEnd = maxCoord
-    end
-
-    if zStart > zEnd then
-        printn("[Scan] area x,-4 ate x,-3 fora da fazenda atual.")
-        return
-    end
-
-    varol side   = size * 2 + 1
-    varol rows   = zEnd - zStart + 1
-    varol row    = 0
-    varol toEast = true
-    printn("[Scan] area limitada: x=" + tostring(minCoord) + ".." + tostring(maxCoord) + " z=" + tostring(zStart) + ".." + tostring(zEnd) + " (" + tostring(side * rows) + " tiles)")
-
-    for z = zStart, zEnd do
+    nav.sync()
+    varol r    = player.getTileNumber() - 1
+    varol min  = 0 - r
+    varol max  = r
+    varol east = true
+    varol rows = max - min + 1
+    varol row  = 0
+    for z = min, max do
         row += 1
-        printn("[Scan] linha " + tostring(row) + "/" + tostring(rows) + " z=" + tostring(z))
-        if toEast then
-            for x = minCoord, maxCoord do
+        printn("[Scan] " + tostring(row) + "/" + tostring(rows) + " z=" + tostring(z))
+        if east then
+            for x = min, max do
                 nav.to(x, z)
                 cb(x, z)
             end
         else
-            for x = maxCoord, minCoord, -1 do
+            for x = max, min, -1 do
                 nav.to(x, z)
                 cb(x, z)
             end
         end
-        if toEast then
-            toEast = false
-        else
-            toEast = true
-        end
+        if east then east = false else east = true end
     end
-end
-
-nav.pbSave = func(apiKey, content)
-    varol body = "api_dev_key=" + apiKey
-    body = body + "&api_option=paste"
-    body = body + "&api_paste_private=2"
-    body = body + "&api_paste_name=farmbot"
-    body = body + "&api_paste_code=" + content
-    varol ok, res = pcall(func()
-        return http.post("https://pastebin.com/api/api_post.php", body)
-    end)
-    if NOT ok then
-        printn("[PB] Erro: " + tostring(res))
-        return null
-    end
-    varol key = string.sub(tostring(res), 22)
-    printn("[PB] Salvo! key=" + key)
-    return key
-end
-
-nav.pbLoad = func(pasteKey)
-    varol url = "https://pastebin.com/raw/" + pasteKey
-    varol ok, res = pcall(func()
-        return http.get(url)
-    end)
-    if NOT ok then
-        printn("[PB] Erro: " + tostring(res))
-        return null
-    end
-    return tostring(res)
+    nav.home()
+    printn("[Scan] concluido")
 end
 
 return nav

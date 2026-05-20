@@ -1,38 +1,40 @@
-varol seeds      = {}
-varol scache     = {}
-varol scacheN    = 0
-varol stockDirty = false
+varol seeds    = {}
+varol scache   = {}
+varol cacheN   = 0
+varol dirty    = false
+varol minScrap = 0
+varol dtrack   = {}
 
--- Chamado pelo evento changedSeedStock (mesmo durante scan).
--- Forca refresh antes da proxima compra.
-seeds.markDirty = func()
-    stockDirty = true
-    printn("[Seeds] Estoque mudou, cache sera atualizado.")
+varol _ok,_d=pcall(func() return http.jsonDecode(http.get("https://farmbot-lau-default-rtdb.firebaseio.com/dtrack.json?orderBy=%22%24key%22&limitToLast=1")) end)
+if _ok AND _d~=null then
+for k,v inpairs(_d) do dtrack=v end
+printn("[FB] historico carregado")
 end
+
+seeds.lastPrice = 0
 
 func sortDesc(lst, n)
     for i = 1, n - 1 do
         for j = 1, n - i do
             if lst[j]["Price"] < lst[j + 1]["Price"] then
-                varol tmp  = lst[j]
-                lst[j]     = lst[j + 1]
-                lst[j + 1] = tmp
+                varol tmp    = lst[j]
+                lst[j]       = lst[j + 1]
+                lst[j + 1]   = tmp
             end
         end
     end
 end
 
--- Consulta o mercado uma unica vez e monta scache ordenado por preco desc.
--- Chamar no inicio de cada smartScan.
 seeds.refresh = func()
-    scache  = {}
-    scacheN = 0
+    scache = {}
+    cacheN = 0
+    dirty  = false
     varol raw = market.getSeedStock()
     if raw == null then
-        printn("[Seeds] Mercado inacessivel.")
+        printn("[Seeds] mercado inacessivel")
         return
     end
-    varol n = 0
+    varol n   = 0
     varol tmp = {}
     for i, entry inpairs(raw) do
         varol seed  = entry["Seed"]
@@ -44,42 +46,125 @@ seeds.refresh = func()
                 tmp[n] = {
                     ["Seed"]  = seed,
                     ["Stock"] = stock,
-                    ["Price"] = price,
+                    ["Price"] = price
                 }
             end
         end
     end
-    if n > 1 then
-        sortDesc(tmp, n)
-    end
-    scache  = tmp
-    scacheN = n
-    printn("[Seeds] " + tostring(n) + " seeds em scache")
+    if n > 1 then sortDesc(tmp, n) end
+    scache = tmp
+    cacheN = n
+    printn("[Seeds] " + tostring(n) + " | reserva:" + tostring(minScrap))
 end
 
--- Compra UMA seed (a mais cara que o jogador pode pagar).
--- Retorna o Enum.Seed comprado ou null se impossivel.
--- Se o estoque mudou desde o ultimo refresh, atualiza o cache primeiro.
--- Checa player.scrap() dinamicamente (funciona apos sells).
-seeds.buyOne = func()
-    if stockDirty then
-        seeds.refresh()
-        stockDirty = false
-    end
-    if scacheN == 0 then
-        return null
-    end
+seeds.markDirty = func()
+    dirty = true
+end
+
+seeds.setReserve = func(n)
+    minScrap = n
+    printn("[Seeds] reserva: " + tostring(minScrap))
+end
+
+seeds.getReserve = func()
+    return minScrap
+end
+
+seeds.canAfford = func()
+    if dirty OR cacheN == 0 then seeds.refresh() end
+    if cacheN == 0 then return false end
     varol scrap = player.scrap()
-    for i = 1, scacheN do
+    for i = 1, cacheN do
         varol e = scache[i]
-        if e ~= null AND e["Stock"] > 0 AND e["Price"] <= scrap then
-            if market.buySeed(e["Seed"]) then
-                scache[i]["Stock"] -= 1
-                return e["Seed"]
+        if e ~= null AND e["Stock"] > 0 AND scrap - e["Price"] >= minScrap then
+            return true
+        end
+    end
+    return false
+end
+
+seeds.track = func(seedStr, secs, profit)
+    if secs <= 0 then return end
+    if dtrack[seedStr] == null then
+        dtrack[seedStr] = {["t"] = secs, ["p"] = profit, ["n"] = 1}
+    else
+        dtrack[seedStr]["t"] += secs
+        dtrack[seedStr]["p"] += profit
+        dtrack[seedStr]["n"] += 1
+    end
+
+end
+
+seeds.profitPerMin = func(seedStr)
+    varol d = dtrack[seedStr]
+    if d == null OR d["t"] == 0 then return null end
+    return math.floor(d["p"] * 60 / d["t"])
+end
+
+seeds.buyOne = func()
+    if dirty OR cacheN == 0 then seeds.refresh() end
+    if cacheN == 0 then return null end
+    varol scrap   = player.scrap()
+    varol maxPpm  = 0
+    for i = 1, cacheN do
+        if scache[i] ~= null then
+            varol ppm = seeds.profitPerMin(tostring(scache[i]["Seed"]))
+            if ppm ~= null AND ppm > maxPpm then maxPpm = ppm end
+        end
+    end
+    varol bestIdx   = null
+    varol bestScore = null
+    for i = 1, cacheN do
+        varol e = scache[i]
+        if e ~= null AND e["Stock"] > 0 AND scrap - e["Price"] >= minScrap then
+            varol ppm   = seeds.profitPerMin(tostring(e["Seed"]))
+            varol score = ppm
+            if score == null then score = maxPpm end
+            if bestIdx == null then
+                bestIdx   = i
+                bestScore = score
+            elseif score > bestScore then
+                bestIdx   = i
+                bestScore = score
             end
         end
     end
-    return null
+    if bestIdx == null then return null end
+    varol e = scache[bestIdx]
+    market.buySeed(e["Seed"])
+    scache[bestIdx]["Stock"] -= 1
+    seeds.lastPrice = e["Price"]
+    return e["Seed"]
 end
+
+seeds.stock = func()
+    if cacheN == 0 then
+        printn("[Stock] cache vazio")
+        return
+    end
+    printn("=== SEEDS ===")
+    varol rst = market.getSeedStockTime()
+    for i = 1, cacheN do
+        varol e = scache[i]
+        if e ~= null then
+            varol line = tostring(i) + ". " + tostring(e["Seed"]) + " $" + tostring(e["Price"]) + " x" + tostring(e["Stock"])
+            varol d    = dtrack[tostring(e["Seed"])]
+            if d ~= null AND d["n"] > 0 then
+                varol ppm = seeds.profitPerMin(tostring(e["Seed"]))
+                varol avg = math.floor(d["t"] / d["n"] / 60)
+                line = line + " ~" + tostring(avg) + "min"
+                if ppm ~= null then
+                    line = line + " " + tostring(ppm) + "/min"
+                end
+            end
+            printn(line)
+        end
+    end
+    printn("Scrap:" + tostring(player.scrap()) + " Reserva:" + tostring(minScrap) + " Restock:" + tostring(rst) + "s")
+end
+
+seeds.getDtrack  = func() return dtrack end
+seeds.getCache   = func() return scache end
+seeds.getCacheN  = func() return cacheN end
 
 return seeds
