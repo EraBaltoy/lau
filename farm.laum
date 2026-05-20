@@ -30,6 +30,21 @@ func setMinWait(w)
     if swMin == null OR w < swMin then swMin = w end
 end
 
+func calcWait(key)
+    varol dur = droneV2.getGearDuration()
+    if dur ~= null AND dur > 0 then
+        setMinWait(dur)
+        return
+    end
+    varol d = pdata[key]
+    if d ~= null then
+        varol avg = seeds.avgDuration(d["s"])
+        if avg ~= null then
+            setMinWait(d["t"] + avg - task.time())
+        end
+    end
+end
+
 func onPlant(key, seed)
     pdata[key] = {
         ["s"] = tostring(seed),
@@ -105,10 +120,7 @@ func processTile(x, z)
             onHarvest(key, player.scrap() - before)
         end
         water()
-        varol dur = droneV2.getGearDuration()
-        if dur ~= null AND dur > 0 then
-            setMinWait(dur)
-        end
+        calcWait(key)
 
     else
         if drone.canCrop() then
@@ -124,10 +136,7 @@ func processTile(x, z)
             end
         else
             water()
-            varol dur = droneV2.getGearDuration()
-            if dur ~= null AND dur > 0 then
-                setMinWait(dur)
-            end
+            calcWait(key)
         end
     end
 end
